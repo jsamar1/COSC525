@@ -25,11 +25,11 @@ class Neuron:
         
     #This method returns the activation of the net
     def activate(self,net):
-        self.net = net
         sigmoid = 1/(1+np.exp(-net))
+        print(self.activation)
         if self.activation == 0:
             output = net
-        if self.activation == 1:
+        elif self.activation == 1:
             output = sigmoid
         else:
             print('Incorrect activation. Choose 0 or 1')
@@ -39,6 +39,7 @@ class Neuron:
     #Calculate the output of the neuron should save the input and output for back-propagation.   
     def calculate(self,input):
         output = self.weights.dot(input)
+        output = self.activate(output)
         print('calculate 1')
         return output
 
