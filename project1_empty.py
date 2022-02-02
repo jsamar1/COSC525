@@ -25,6 +25,7 @@ class Neuron:
         
     #This method returns the activation of the net
     def activate(self,net):
+        self.net = net
         sigmoid = 1/(1+np.exp(-net))
         print(self.activation)
         if self.activation == 0:
