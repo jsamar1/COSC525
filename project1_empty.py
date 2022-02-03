@@ -27,7 +27,6 @@ class Neuron:
     def activate(self,net):
         self.net = net
         sigmoid = 1/(1+np.exp(-net))
-        print(self.activation)
         if self.activation == 0:
             output = net
         elif self.activation == 1:
@@ -39,7 +38,8 @@ class Neuron:
         
     #Calculate the output of the neuron should save the input and output for back-propagation.   
     def calculate(self,input):
-        output = self.weights.dot(input)
+        self.input = input
+        output = self.weights.dot(self.input)
         output = self.activate(output)
         print('calculate 1')
         return output
@@ -55,10 +55,12 @@ class Neuron:
     
     #This method calculates the partial derivative for each weight and returns the delta*w to be used in the previous layer
     def calcpartialderivative(self, wtimesdelta):
+        return self.input #the derivative w.r.t. w for w*X is X (the input)
         print('calcpartialderivative') 
     
     #Simply update the weights using the partial derivatives and the leranring weight
     def updateweight(self):
+        self.weights = self.weights - self.lr*self.input
         print('updateweight')
 
         
@@ -80,17 +82,28 @@ class FullyConnected:
     #calcualte the output of all the neurons in the layer and return a vector with those values (go through the neurons and call the calcualte() method)      
     def calculate(self, input):
         outputs = []
+        #print(self.numOfNeurons)
         for i in range(self.numOfNeurons):
             perceptron = Neuron(self.activation,self.input_num,self.lr,self.weights[i,:])
             #calculates the value of the neuron
             value = perceptron.calculate(input)
             outputs.append(value)
+        #print(outputs)
         print('calculate 2')
         return outputs
         
             
     #given the next layer's w*delta, should run through the neurons calling calcpartialderivative() for each (with the correct value), sum up its ownw*delta, and then update the wieghts (using the updateweight() method). I should return the sum of w*delta.          
     def calcwdeltas(self, wtimesdelta):
+        # delta = np.zeros_like(self.weights) #initalizing the delta variable to be the same shape as the weights
+        # for i in range(self.numOfNeurons):
+        #     perceptron = Neuron(self.activation,self.input_num,self.lr,self.weights[i,:])
+        #     delta += perceptron.calcpartialderivative()  #adds the delta of each neuron together
+        delta = []
+        for i in range(self.numOfNeurons):
+             perceptron = Neuron(self.activation,self.input_num,self.lr,self.weights[i,:])
+             delta.append(perceptron.calcpartialderivative(0))  #I don't think the wtimesdelta argument is used? subbed for 0
+             perceptron.updateweight()
         print('calcwdeltas') 
            
         
@@ -107,7 +120,7 @@ class NeuralNetwork:
         self.weights = weights
         if self.weights.any() == None:
             self.weights = np.random.rand(self.inputSize,self.numOfNeurons,self.numOfLayers)
-        print('constructor 3') 
+        print('constructor 3')
     
     #Given an input, calculate the output (using the layers calculate() method)
     def calculate(self,input):
@@ -115,9 +128,12 @@ class NeuralNetwork:
         for i in range(self.numOfLayers):
             layer = FullyConnected(self.numOfNeurons,self.activation,self.inputSize,self.lr,self.weights[:][:][i])
             value = layer.calculate(input)
-            outputs.append(value)
+            outputs.append(list(value))
+            input = value  #sets input to the next layer as the output to the previous layer           
+            input.append(1) #adds the bias node to the input vector
+            layer.calcwdeltas(0)
         print('calculate 3')
-        print(outputs)
+        #print(outputs)
         return outputs
     
     #Given a predicted output and ground truth output simply return the loss (depending on the loss function)
@@ -137,7 +153,7 @@ if __name__=="__main__":
         print('a good place to test different parts of your code')
         w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])
         x=np.array([0.05,0.1,1])  #bias added into x vector
-        model = NeuralNetwork(2,2,2,0,0,0.1,w)
+        model = NeuralNetwork(2,2,2,1,0,0.1,w)
         model.calculate(x)
         
     elif (sys.argv[1]=='example'):
