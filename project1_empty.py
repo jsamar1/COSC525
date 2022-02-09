@@ -21,8 +21,8 @@ class Neuron:
         self.input_num = input_num
         self.lr = lr
         self.weights = weights
-        if self.weights.any() == None:
-            self.weights = np.random.rand(1,self.input_num)
+        # if self.weights.any() == None:
+        #     self.weights = np.random.rand(1,self.input_num)
         print('constructor 1')    
         
     #This method returns the activation of the net
@@ -76,9 +76,9 @@ class FullyConnected:
         self.lr = lr
         self.weights = weights
         #Initalize weights if none given
-        if self.weights.any() == None:
-            self.weights = np.random.rand(self.input_num,self.numOfNeurons)
-        self.perceptron = [Neuron(self.activation,self.input_num,self.lr,self.weights[i,:]) for i in range(self.numOfNeurons)]
+        # if self.weights.any() == None:
+        #     self.weights = np.random.rand(self.input_num,self.numOfNeurons)
+        self.perceptron = [Neuron(self.activation,self.input_num,self.lr,self.weights[i]) for i in range(self.numOfNeurons)]
         print('constructor 2') 
         
         
@@ -115,13 +115,12 @@ class NeuralNetwork:
         self.loss = loss
         self.lr = lr
         self.weights = weights
-        if self.weights.any() == None:
-            self.weights = np.random.rand(self.inputSize,self.numOfNeurons,self.numOfLayers)
         self.layer = [FullyConnected(self.numOfNeurons,self.activation,self.inputSize,self.lr,self.weights[:][:][i]) for i in range(self.numOfLayers)] #instantiate layers
         print('constructor 3')
     
     #Given an input, calculate the output (using the layers calculate() method)
     def calculate(self,input):
+        input = np.append(input,1)
         outputs = [input]
         for i in range(self.numOfLayers):
             layer = self.layer[i]
@@ -147,6 +146,7 @@ class NeuralNetwork:
     #Given a predicted output and ground truth output simply return the derivative of the loss (depending on the loss function)        
     def lossderiv(self,yp,y):
         if self.loss == 0:
+            print(yp,y)
             errorderiv = -(y-yp)  #yp is the predicted y values (outputs)
         return errorderiv
         print('lossderiv')
@@ -168,29 +168,61 @@ class NeuralNetwork:
 if __name__=="__main__":
     if (len(sys.argv)<2):
         print('a good place to test different parts of your code')
-        w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])
-        x=np.array([0.05,0.1,1])  #bias added into x vector
+        w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])     #runs the example from class, uncomment the block to train
+        print(w.shape)
+        x=np.array([0.05,0.1])  #bias added into x vector
         y = np.array([0.01,0.99])
-        # model = NeuralNetwork(2,2,2,1,0,0.5,w)
-        # print(model.train(x,y))
-        errors = []
-        for i in range(100):
-            model = NeuralNetwork(2,2,2,1,0,0.5,w)
-            w = model.train(x,y)[1]
-            errors.append(model.train(x,y)[0])
-        plt.plot(errors)
+        model = NeuralNetwork(2,2,2,1,0,0.5,w)
+        print(model.train(x,y))
+        # errors = []
+        # for i in range(100):
+        #     model = NeuralNetwork(2,2,2,1,0,0.5,w)
+        #     w = model.train(x,y)[1]
+        #     errors.append(model.train(x,y)[0])
+        # plt.plot(errors)
         
     elif (sys.argv[1]=='example'):
         print('run example from class (single step)')
-        w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])
+        w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])     #will put example above here eventually
         x=np.array([0.05,0.1,1])  #bias added into x vector
         model = NeuralNetwork(2,2,2,0,0,0.5,w)
         model.calculate(x)
-        
         np.array([0.01,0.99])
         
     elif(sys.argv[1]=='and'):
+        xs = np.array([[0, 0],[0,1],[1,0],[1,1]])
+        ys = np.array([[0], [0], [0], [1]])
+        w=np.array([[[.15,.2,.25]]]) #wrap in lots of lists for layer/neuron indexing
+        errors = []
+        for i in range(100):
+            suberror = []
+            for x,y in zip(xs,ys):
+                model = NeuralNetwork(1,1,2,1,0,2,w) #Extremely high learning rate of 2 for fast convergence, iterated manually for optimal lr
+                loss, w = model.train(x,y)
+                suberror.append(loss)
+            errors.append(np.average(suberror))
+        plt.plot(errors)
         print('learn and')
         
     elif(sys.argv[1]=='xor'):
+        xs = np.array([[0, 0],[0,1],[1,0],[1,1]])
+        ys = np.array([[0], [1], [1], [0]])
+        w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]]) #these weights correlate to 2 output neurons when we should have 1 for xor
+        #w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45]]]) #network structure is 3x1 -> 2x1 -> 1x1
+        #w = np.random.normal(loc=np.sqrt(2/4),size=(2,2,3))    #experimenting with xavier initialization
+        errors = []
+        for i in range(2):
+            suberror = []
+            for x,y in zip(xs,ys):
+                model = NeuralNetwork(2,2,2,1,0,0.1,w) 
+                loss, w = model.train(x,y)
+                suberror.append(loss)
+            errors.append(np.average(suberror))
+        plt.plot(errors)
+        
+        #predict
+        testpt = np.array([0, 0])
+        model = NeuralNetwork(2,2,2,1,0,0.1,w) 
+        outputs = model.calculate(testpt)
+        #print(outputs[-1])
         print('learn xor')
