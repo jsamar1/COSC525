@@ -141,19 +141,24 @@ class NeuralNetwork:
     
     #Given a predicted output and ground truth output simply return the loss (depending on the loss function)
     def calculateloss(self,yp,y):
+        ones = [1] * len(y)
         if self.loss == 0:
             error = 0.5*np.sum((y-yp)**2) #MSE
-            #print(error,'errorrrrrrrrr')
+            # print(error,'0 errorrrrrrrrr\n')
         if self.loss == 1:
-            pass
+            error = (1 / len(y)) * np.sum( -1*((y * np.log(yp) + np.subtract(ones, y) * np.log(np.subtract(ones, yp)))) )
+            # print(error,'1 errorrrrrrrrr\n')
         return error
         #print('calculate loss')
     
     #Given a predicted output and ground truth output simply return the derivative of the loss (depending on the loss function)        
     def lossderiv(self,yp,y):
+        ones = [1] * len(y)
         if self.loss == 0:
             #print(yp,y)
             errorderiv = -(y-yp)  #yp is the predicted y values (outputs)
+        if self.loss == 1:
+            errorderiv = -y/yp + np.subtract(ones, y)/np.subtract(ones, yp)
         return errorderiv
         #print('lossderiv')
     
@@ -178,20 +183,26 @@ if __name__=="__main__":
         x=np.array([0.05,0.1])  #bias added into x vector
         y = np.array([0.01,0.99])
         model = NeuralNetwork(2,2,2,1,0,0.5,w)
-        print(model.train(x,y))
-        # errors = []
-        # for i in range(100):
-        #     model = NeuralNetwork(2,2,2,1,0,0.5,w)
-        #     w = model.train(x,y)[1]
-        #     errors.append(model.train(x,y)[0])
-        # plt.plot(errors)
+        error, weights = model.train(x,y)
+
+        print(f'Error: {error}\nWeights: {[[w[:-1] for w in we] for we in weights]}')
+        errors = []
+        for i in range(100):
+            model = NeuralNetwork(2,2,2,1,0,0.5,w)
+            error, w = model.train(x,y)
+            errors.append(error)
+        plt.plot(errors)
+        plt.ylabel("Error Value")
+        plt.xlabel("Epochs")
+        plt.show()
         
     elif (sys.argv[1]=='example'):
         print('run example from class (single step)')
         w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])     #will put example above here eventually
-        x=np.array([0.05,0.1,1])  #bias added into x vector
-        model = NeuralNetwork(2,2,2,0,0,0.5,w)
-        model.calculate(x)
+        x=np.array([0.05,0.1])  #bias added into x vector
+        # def __init__(self,numOfLayers,numOfNeurons, inputSize, activation, loss, lr, weights=None):
+        model = NeuralNetwork(2,2,2,0,1,0.5,w)
+        print(model.calculate(x))
         np.array([0.01,0.99])
         
     elif(sys.argv[1]=='and'):
