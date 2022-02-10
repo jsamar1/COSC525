@@ -120,7 +120,14 @@ class NeuralNetwork:
         self.loss = loss
         self.lr = lr
         self.weights = weights
-        self.layer = [FullyConnected(self.numOfNeurons,self.activation,self.inputSize,self.lr,self.weights[i]) for i in range(self.numOfLayers)] #instantiate layers
+        self.layer = []
+        for i in range(self.numOfLayers):
+            try: #handles the case where sys.argv[1] does not exist
+                if i == (self.numOfLayers-1) and sys.argv[1]=='xor': 
+                    self.numOfNeurons = 1
+            except:
+                pass
+            self.layer.append(FullyConnected(self.numOfNeurons,self.activation,self.inputSize,self.lr,self.weights[i])) #instantiate layers, changing output layer to 1 neuron for xor gate
         #print('constructor 3')
     
     #Given an input, calculate the output (using the layers calculate() method)
@@ -194,6 +201,7 @@ if __name__=="__main__":
         plt.plot(errors)
         plt.ylabel("Error Value")
         plt.xlabel("Epochs")
+        plt.title('Example from Class')
         plt.show()
         
     elif (sys.argv[1]=='example'):
@@ -218,6 +226,10 @@ if __name__=="__main__":
                 suberror.append(loss)
             errors.append(np.average(suberror))
         plt.plot(errors)
+        plt.ylabel("Error Value")
+        plt.xlabel("Epochs")
+        plt.title('AND with single perceptron')
+        plt.show()
         print('learn and')
         
     elif(sys.argv[1]=='xor'):
@@ -227,15 +239,18 @@ if __name__=="__main__":
         w2 = np.random.normal(loc=np.sqrt(2/11),size=(1,5,6))[0]     #with dimensions (numOfLayers,numOfOutputs in next layer,numOfNeurons including bias)
         w=[w1,w2]                                                    #it is a gaussian distribution defined with the xavier initialization
         errors = []
-        for i in range(100):
+        for i in range(200):
             suberror = []
             for x,y in zip(xs,ys):
-                model = NeuralNetwork(2,5,2,1,0,5,w) 
+                model = NeuralNetwork(2,5,2,1,0,2,w) 
                 loss, w = model.train(x,y)
                 suberror.append(loss)
             errors.append(np.average(suberror))
         plt.plot(errors)
-        
+        plt.ylabel("Error Value")
+        plt.xlabel("Epochs")
+        plt.title('XOR with 2 layers, 5 hidden units')
+        plt.show()
         #predict
         testpts = np.array([[0, 0],[0,1],[1,0],[1,1]])
         model = NeuralNetwork(2,5,2,1,0,0.1,w)
@@ -245,4 +260,20 @@ if __name__=="__main__":
             outputs.append(np.mean(out[-1]))
         print(outputs)
         print('If bad accuracy (should be [0, 1, 1, 0]), rerun the example for different weights')
+        
+        w3=np.array([[[1.2,1.4,1.6]]]) #single perceptron training on xor data
+        errors1 = []
+        for i in range(100):
+            suberror = []
+            for x,y in zip(xs,ys):
+                model = NeuralNetwork(1,1,2,1,0,1,w3) #Extremely high learning rate of 2 for fast convergence, iterated manually for optimal lr
+                loss, w = model.train(x,y)
+                suberror.append(loss)
+            errors1.append(np.average(suberror))
+        plt.plot(errors1)
+        plt.ylabel("Error Value")
+        plt.xlabel("Epochs")
+        plt.title('XOR with single perceptron')
+        plt.show()
+        
         print('learn xor')
