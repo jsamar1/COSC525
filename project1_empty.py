@@ -177,7 +177,33 @@ class NeuralNetwork:
         #print('train')
 
 if __name__=="__main__":
-    if (len(sys.argv)<2):
+    if(sys.argv[1] == 'graphs'):
+        learningRates = [.001, .01, .05, .1, .2, .3, .5]
+        lossFunctions = [0, 1] # 0 == means squared, 1 == binary cross entropy
+        plotTitles = ["Mean Square Error Loss", "Binary Cross Entropy Loss"]
+        print('Create graphics of different learning rates with different loss functions')
+
+
+        w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])     #will put example above here eventually
+        x=np.array([0.05,0.1])  #bias added into x vector
+        y = np.array([0.01, 0.99])
+        # def __init__(self,numOfLayers,numOfNeurons, inputSize, activation, loss, lr, weights=None):
+        for loss in lossFunctions:
+            plt.figure(loss)
+            plt.title(plotTitles[loss])
+            plt.ylabel("Error Value")
+            plt.xlabel("Epoch")
+            for rate in learningRates:
+                errors = []
+                model = NeuralNetwork(2,2,2,1,loss,rate,w)
+                for i in range(500):
+                    error, w = model.train(x,y)
+                    errors.append(error)
+                plt.plot(errors, label=str(rate))
+            plt.legend(loc="upper right")
+            plt.savefig(plotTitles[loss].lower().replace(" ", ""))
+            plt.show()
+    elif(len(sys.argv)<2):
         print('a good place to test different parts of your code')
         w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])     #runs the example from class, uncomment the block to train
         x=np.array([0.05,0.1])  #bias added into x vector
@@ -196,16 +222,28 @@ if __name__=="__main__":
         plt.xlabel("Epochs")
         plt.show()
         
-    elif (sys.argv[1]=='example'):
+    elif (sys.argv[2]=='example'):
+        learningRate = float(sys.argv[1])
         print('run example from class (single step)')
         w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])     #will put example above here eventually
         x=np.array([0.05,0.1])  #bias added into x vector
+        y = np.array([0.01, 0.99])
         # def __init__(self,numOfLayers,numOfNeurons, inputSize, activation, loss, lr, weights=None):
-        model = NeuralNetwork(2,2,2,0,1,0.5,w)
+        model = NeuralNetwork(2,2,2,0,0,learningRate,w)
         print(model.calculate(x))
-        np.array([0.01,0.99])
+
+        # print(f'Error: {error}\nWeights: {[[w[:-1] for w in we] for we in weights]}')
+        errors = []
+        model = NeuralNetwork(2,2,2,1,0,learningRate,w)
+        for i in range(100):
+            error, w = model.train(x,y)
+            errors.append(error)
+        plt.plot(errors)
+        plt.ylabel("Error Value")
+        plt.xlabel("Epochs")
+        plt.show()
         
-    elif(sys.argv[1]=='and'):
+    elif(sys.argv[2]=='and'):
         xs = np.array([[0, 0],[0,1],[1,0],[1,1]])
         ys = np.array([[0], [0], [0], [1]])
         w=np.array([[[.15,.2,.25]]]) #wrap in lots of lists for layer/neuron indexing
@@ -218,19 +256,21 @@ if __name__=="__main__":
                 suberror.append(loss)
             errors.append(np.average(suberror))
         plt.plot(errors)
+        plt.show()
         print('learn and')
         
-    elif(sys.argv[1]=='xor'):
+    elif(sys.argv[2]=='xor'):
         xs = np.array([[0, 0],[0,1],[1,0],[1,1]])
         ys = np.array([[0], [1], [1], [0]])
         w1 = np.random.normal(loc=np.sqrt(2/8),size=(1,5,3))[0]      #for networks where input size != number of neurons, you must initialize the first layer weights separately
         w2 = np.random.normal(loc=np.sqrt(2/11),size=(1,5,6))[0]     #with dimensions (numOfLayers,numOfOutputs in next layer,numOfNeurons including bias)
         w=[w1,w2]                                                    #it is a gaussian distribution defined with the xavier initialization
         errors = []
-        for i in range(100):
+        # def __init__(self,numOfLayers,numOfNeurons, inputSize, activation, loss, lr, weights=None):
+        model = NeuralNetwork(2,5,2,1,0,5,w) 
+        for i in range(1000):
             suberror = []
             for x,y in zip(xs,ys):
-                model = NeuralNetwork(2,5,2,1,0,5,w) 
                 loss, w = model.train(x,y)
                 suberror.append(loss)
             errors.append(np.average(suberror))
@@ -238,7 +278,7 @@ if __name__=="__main__":
         
         #predict
         testpts = np.array([[0, 0],[0,1],[1,0],[1,1]])
-        model = NeuralNetwork(2,5,2,1,0,0.1,w)
+        # model = NeuralNetwork(2,5,2,1,0,0.1,w)
         outputs = []
         for i in range(4):
             out = model.calculate(testpts[i])
