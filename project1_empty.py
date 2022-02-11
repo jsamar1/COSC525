@@ -11,8 +11,9 @@ loss:
 0 - sum of square errors
 1 - binary cross entropy
 """
-
-
+LOSS_FUNCTION = 0
+ACTIVATION_FUNCTION = 1
+EPOCHS_VALUE = 1000
 # A class which represents a single neuron
 class Neuron:
     #initilize neuron with activation type, number of inputs, learning rate, and possibly with set weights
@@ -153,7 +154,7 @@ class NeuralNetwork:
             error = 0.5*np.sum((y-yp)**2) #MSE
             # print(error,'0 errorrrrrrrrr\n')
         if self.loss == 1:
-            error = (1 / len(y)) * np.sum( -1*((y * np.log(yp) + np.subtract(ones, y) * np.log(np.subtract(ones, yp)))) )
+            error = (1 / len(y)) * -1 * np.sum( (y * np.log(yp) + np.subtract(ones, y) * np.log(np.subtract(ones, yp))) )
             # print(error,'1 errorrrrrrrrr\n')
         return error
         #print('calculate loss')
@@ -184,44 +185,18 @@ class NeuralNetwork:
         #print('train')
 
 if __name__=="__main__":
-    if(sys.argv[1] == 'graphs'):
-        learningRates = [.001, .01, .05, .1, .2, .3, .5]
-        lossFunctions = [0, 1] # 0 == means squared, 1 == binary cross entropy
-        plotTitles = ["Mean Square Error Loss", "Binary Cross Entropy Loss"]
-        print('Create graphics of different learning rates with different loss functions')
-
-
-        w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])     #will put example above here eventually
-        x=np.array([0.05,0.1])  #bias added into x vector
-        y = np.array([0.01, 0.99])
-        # def __init__(self,numOfLayers,numOfNeurons, inputSize, activation, loss, lr, weights=None):
-        for loss in lossFunctions:
-            plt.figure(loss)
-            plt.title(plotTitles[loss])
-            plt.ylabel("Error Value")
-            plt.xlabel("Epoch")
-            for rate in learningRates:
-                errors = []
-                model = NeuralNetwork(2,2,2,1,loss,rate,w)
-                for i in range(500):
-                    error, w = model.train(x,y)
-                    errors.append(error)
-                plt.plot(errors, label=str(rate))
-            plt.legend(loc="upper right")
-            plt.savefig(plotTitles[loss].lower().replace(" ", ""))
-            plt.show()
-    elif(len(sys.argv)<2):
+    if(len(sys.argv) < 2):
         print('a good place to test different parts of your code')
         w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])     #runs the example from class, uncomment the block to train
         x=np.array([0.05,0.1])  #bias added into x vector
         y = np.array([0.01,0.99])
-        model = NeuralNetwork(2,2,2,1,0,0.5,w)
-        error, weights = model.train(x,y)
+        # model = NeuralNetwork(2,2,2,1,0,0.5,w)
+        # error, weights = model.train(x,y)
 
-        print(f'Error: {error}\nWeights: {[[w[:-1] for w in we] for we in weights]}')
+        # print(f'Error: {error}\nWeights: {[[w[:-1] for w in we] for we in weights]}')
         errors = []
-        for i in range(100):
-            model = NeuralNetwork(2,2,2,1,0,0.5,w)
+        model = NeuralNetwork(2,2,2,ACTIVATION_FUNCTION,LOSS_FUNCTION,0.001,w)
+        for i in range(EPOCHS_VALUE):
             error, w = model.train(x,y)
             errors.append(error)
         plt.plot(errors)
@@ -229,7 +204,35 @@ if __name__=="__main__":
         plt.xlabel("Epochs")
         plt.title('Example from Class')
         plt.show()
-        
+    elif(sys.argv[2] == 'graphs'):
+        learningRates = [.001, .01, .05, .1, .2, .3, .5]
+        lossFunctions = [0, 1] # 0 == means squared, 1 == binary cross entropy
+        plotTitles = ["Mean Square Error Loss", "Binary Cross Entropy Loss"]
+        actFuncs = ["linear", "logistic"]
+        print('Create graphics of different learning rates with different loss functions')
+
+
+        w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])     #will put example above here eventually
+        x=np.array([0.05,0.1])  #bias added into x vector
+        y = np.array([0.01, 0.99])
+        # def __init__(self,numOfLayers,numOfNeurons, inputSize, activation, loss, lr, weights=None):
+        for activationFunc in lossFunctions:
+            for loss in lossFunctions:
+                plt.figure(loss)
+                plt.title(plotTitles[loss] + " - " + actFuncs[activationFunc])
+                plt.ylabel("Error Value")
+                plt.xlabel("Epoch")
+                for rate in learningRates:
+                    errors = []
+                    w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])     #will put example above here eventually
+                    model = NeuralNetwork(2,2,2,activationFunc,loss,rate,w)
+                    for i in range(EPOCHS_VALUE):
+                        error, w = model.train(x,y)
+                        errors.append(error)
+                    plt.plot(errors, label=str(rate))
+                plt.legend(loc="upper right")
+                plt.savefig(plotTitles[loss].lower().replace(" ", "") + "_" + actFuncs[activationFunc])
+                plt.show()  
     elif (sys.argv[2]=='example'):
         learningRate = float(sys.argv[1])
         print('run example from class (single step)')
@@ -237,13 +240,17 @@ if __name__=="__main__":
         x=np.array([0.05,0.1])  #bias added into x vector
         y = np.array([0.01, 0.99])
         # def __init__(self,numOfLayers,numOfNeurons, inputSize, activation, loss, lr, weights=None):
-        model = NeuralNetwork(2,2,2,0,0,learningRate,w)
-        print(model.calculate(x))
+        model = NeuralNetwork(2,2,2,ACTIVATION_FUNCTION,LOSS_FUNCTION,learningRate,w)
+        # print(model.calculate(x))
 
-        # print(f'Error: {error}\nWeights: {[[w[:-1] for w in we] for we in weights]}')
+        # Perform a single step on the example from class
+        error, weights = model.train(x,y)
+        print(f'Error: {error}\nWeights: {[[w[:-1] for w in we] for we in weights]}')
+        print(f'[ [w1, w2], [w3, w4], [w5, w6], [w7, w8] ]')
+
         errors = []
-        model = NeuralNetwork(2,2,2,1,0,learningRate,w)
-        for i in range(100):
+        model = NeuralNetwork(2,2,2,ACTIVATION_FUNCTION,LOSS_FUNCTION,learningRate,w)
+        for i in range(EPOCHS_VALUE):
             error, w = model.train(x,y)
             errors.append(error)
         plt.plot(errors)
@@ -252,46 +259,61 @@ if __name__=="__main__":
         plt.show()
         
     elif(sys.argv[2]=='and'):
+        learningRate = float(sys.argv[1])
         xs = np.array([[0, 0],[0,1],[1,0],[1,1]])
         ys = np.array([[0], [0], [0], [1]])
         w=np.array([[[.15,.2,.25]]]) #wrap in lots of lists for layer/neuron indexing
         errors = []
-        for i in range(100):
+        model = NeuralNetwork(1,1,2,ACTIVATION_FUNCTION,LOSS_FUNCTION,learningRate,w) #Extremely high learning rate of 2 for fast convergence, iterated manually for optimal lr
+        for i in range(EPOCHS_VALUE):
             suberror = []
             for x,y in zip(xs,ys):
-                model = NeuralNetwork(1,1,2,1,0,2,w) #Extremely high learning rate of 2 for fast convergence, iterated manually for optimal lr
                 loss, w = model.train(x,y)
                 suberror.append(loss)
             errors.append(np.average(suberror))
+
         plt.plot(errors)
         plt.ylabel("Error Value")
         plt.xlabel("Epochs")
         plt.title('AND with single perceptron')
         plt.show()
-        print('learn and')
+
+        print('\nSingle Perceptron for AND')
+        testpts = np.array([[0, 0],[0,1],[1,0],[1,1]])
+        outputs = []
+        for i in range(4):
+            out = model.calculate(testpts[i])
+            outputs.append(np.mean(out[-1]))
+        print(outputs)
+        print('If bad accuracy (should be [0, 0, 0, 1]), rerun the example for different weights')
         
     elif(sys.argv[2]=='xor'):
+        learningRate = float(sys.argv[1])
         xs = np.array([[0, 0],[0,1],[1,0],[1,1]])
         ys = np.array([[0], [1], [1], [0]])
         w1 = np.random.normal(loc=np.sqrt(2/8),size=(1,5,3))[0]      #for networks where input size != number of neurons, you must initialize the first layer weights separately
         w2 = np.random.normal(loc=np.sqrt(2/11),size=(1,5,6))[0]     #with dimensions (numOfLayers,numOfOutputs in next layer,numOfNeurons including bias)
         w=[w1,w2]                                                    #it is a gaussian distribution defined with the xavier initialization
         errors = []
-        for i in range(200):
+        
+        model = NeuralNetwork(2,5,2,ACTIVATION_FUNCTION,LOSS_FUNCTION,learningRate,w) 
+        
+        for i in range(EPOCHS_VALUE):
             suberror = []
             for x,y in zip(xs,ys):
-                model = NeuralNetwork(2,5,2,1,0,2,w) 
                 loss, w = model.train(x,y)
                 suberror.append(loss)
             errors.append(np.average(suberror))
+        
         plt.plot(errors)
         plt.ylabel("Error Value")
         plt.xlabel("Epochs")
         plt.title('XOR with 2 layers, 5 hidden units')
         plt.show()
+        
         #predict
+        print(f'\nHidden layer for XOR')
         testpts = np.array([[0, 0],[0,1],[1,0],[1,1]])
-        # model = NeuralNetwork(2,5,2,1,0,0.1,w)
         outputs = []
         for i in range(4):
             out = model.calculate(testpts[i])
@@ -301,10 +323,10 @@ if __name__=="__main__":
         
         w3=np.array([[[1.2,1.4,1.6]]]) #single perceptron training on xor data
         errors1 = []
-        for i in range(100):
+        model = NeuralNetwork(1,1,2,ACTIVATION_FUNCTION,LOSS_FUNCTION,learningRate,w3) #Extremely high learning rate of 2 for fast convergence, iterated manually for optimal lr
+        for i in range(EPOCHS_VALUE):
             suberror = []
             for x,y in zip(xs,ys):
-                model = NeuralNetwork(1,1,2,1,0,1,w3) #Extremely high learning rate of 2 for fast convergence, iterated manually for optimal lr
                 loss, w = model.train(x,y)
                 suberror.append(loss)
             errors1.append(np.average(suberror))
@@ -313,5 +335,12 @@ if __name__=="__main__":
         plt.xlabel("Epochs")
         plt.title('XOR with single perceptron')
         plt.show()
+
+        print(f'\nSingle Percepton for XOR')
+        outputs = []
+        for i in range(4):
+            out = model.calculate(testpts[i])
+            outputs.append(np.mean(out[-1]))
+        print(outputs)
+        print('If bad accuracy (should be [0, 1, 1, 0]), rerun the example for different weights')
         
-        print('learn xor')
