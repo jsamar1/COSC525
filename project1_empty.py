@@ -124,7 +124,7 @@ class NeuralNetwork:
         self.layer = []
         for i in range(self.numOfLayers):
             try: #handles the case where sys.argv[1] does not exist
-                if i == (self.numOfLayers-1) and sys.argv[1]=='xor': 
+                if i == (self.numOfLayers-1) and sys.argv[2]=='xor': 
                     self.numOfNeurons = 1
             except:
                 pass
@@ -155,6 +155,7 @@ class NeuralNetwork:
             # print(error,'0 errorrrrrrrrr\n')
         if self.loss == 1:
             error = (1 / len(y)) * -1 * np.sum( (y * np.log(yp) + np.subtract(ones, y) * np.log(np.subtract(ones, yp))) )
+            
             # print(error,'1 errorrrrrrrrr\n')
         return error
         #print('calculate loss')
@@ -188,7 +189,7 @@ if __name__=="__main__":
     if(len(sys.argv) < 2):
         print('a good place to test different parts of your code')
         w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])     #runs the example from class, uncomment the block to train
-        x=np.array([0.05,0.1])  #bias added into x vector
+        x=np.array([0.05,0.1])
         y = np.array([0.01,0.99])
         # model = NeuralNetwork(2,2,2,1,0,0.5,w)
         # error, weights = model.train(x,y)
@@ -208,12 +209,12 @@ if __name__=="__main__":
         learningRates = [.001, .01, .05, .1, .2, .3, .5]
         lossFunctions = [0, 1] # 0 == means squared, 1 == binary cross entropy
         plotTitles = ["Mean Square Error Loss", "Binary Cross Entropy Loss"]
-        actFuncs = ["linear", "logistic"]
+        actFuncs = ["Linear Activation", "Logistic Activation"]
         print('Create graphics of different learning rates with different loss functions')
 
 
         w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])     #will put example above here eventually
-        x=np.array([0.05,0.1])  #bias added into x vector
+        x=np.array([0.05,0.1])
         y = np.array([0.01, 0.99])
         # def __init__(self,numOfLayers,numOfNeurons, inputSize, activation, loss, lr, weights=None):
         for activationFunc in lossFunctions:
@@ -285,7 +286,6 @@ if __name__=="__main__":
             out = model.calculate(testpts[i])
             outputs.append(np.mean(out[-1]))
         print(outputs)
-        print('If bad accuracy (should be [0, 0, 0, 1]), rerun the example for different weights')
         
     elif(sys.argv[2]=='xor'):
         learningRate = float(sys.argv[1])
@@ -323,7 +323,7 @@ if __name__=="__main__":
         
         w3=np.array([[[1.2,1.4,1.6]]]) #single perceptron training on xor data
         errors1 = []
-        model = NeuralNetwork(1,1,2,ACTIVATION_FUNCTION,LOSS_FUNCTION,learningRate,w3) #Extremely high learning rate of 2 for fast convergence, iterated manually for optimal lr
+        model = NeuralNetwork(1,1,2,ACTIVATION_FUNCTION,LOSS_FUNCTION,learningRate,w3)
         for i in range(EPOCHS_VALUE):
             suberror = []
             for x,y in zip(xs,ys):
@@ -342,5 +342,5 @@ if __name__=="__main__":
             out = model.calculate(testpts[i])
             outputs.append(np.mean(out[-1]))
         print(outputs)
-        print('If bad accuracy (should be [0, 1, 1, 0]), rerun the example for different weights')
+        print('Bad accuracy attributed to high bias and underfitting')
         
