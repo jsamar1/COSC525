@@ -11,7 +11,7 @@ loss:
 0 - sum of square errors
 1 - binary cross entropy
 """
-LOSS_FUNCTION = 0
+LOSS_FUNCTION = 1
 ACTIVATION_FUNCTION = 1
 EPOCHS_VALUE = 1000
 # A class which represents a single neuron
@@ -152,22 +152,23 @@ class NeuralNetwork:
         ones = [1] * len(y)
         if self.loss == 0:
             error = 0.5*np.sum((y-yp)**2) #MSE
-            # print(error,'0 errorrrrrrrrr\n')
         if self.loss == 1:
-            error = (1 / len(y)) * -1 * np.sum( (y * np.log(yp) + np.subtract(ones, y) * np.log(np.subtract(ones, yp))) )
-            
-            # print(error,'1 errorrrrrrrrr\n')
+            y = y[0]
+            yp = yp[0]
+            #error = (1 / len(y)) * -1 * np.sum( (y * np.log(yp) + np.subtract(ones, y) * np.log(np.subtract(ones, yp))) )
+            error = -(y*np.log(yp) + (1-y)*np.log(1-yp))
         return error
         #print('calculate loss')
     
     #Given a predicted output and ground truth output simply return the derivative of the loss (depending on the loss function)        
     def lossderiv(self,yp,y):
-        ones = [1] * len(y)
         if self.loss == 0:
-            #print(yp,y)
             errorderiv = -(y-yp)  #yp is the predicted y values (outputs)
         if self.loss == 1:
-            errorderiv = -y/yp + np.subtract(ones, y)/np.subtract(ones, yp)
+            y = y[0] # convert to float to calculations
+            yp = yp[0] # convert to float
+            errorderiv = -y/yp +(1-y)/(1-yp)
+            errorderiv = np.expand_dims(errorderiv,axis=0) #allows indexing of wtimesdelta e.g. errorderiv[0]
         return errorderiv
         #print('lossderiv')
     
@@ -237,12 +238,15 @@ if __name__=="__main__":
     elif (sys.argv[2]=='example'):
         learningRate = float(sys.argv[1])
         print('run example from class (single step)')
-        w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])     #will put example above here eventually
-        x=np.array([0.05,0.1])  #bias added into x vector
+        w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])
+        x=np.array([0.05,0.1])  # bias added into x vector
         y = np.array([0.01, 0.99])
-        # def __init__(self,numOfLayers,numOfNeurons, inputSize, activation, loss, lr, weights=None):
+        ACITVATION_FUNCTION = 0 
+        LOSS_FUNCTION = 0  # cannot have binary cross entropy with 2 output nodes
+        learningRate = 0.5 # matches the learning rate in the example so weights match on backprop
+        
         model = NeuralNetwork(2,2,2,ACTIVATION_FUNCTION,LOSS_FUNCTION,learningRate,w)
-        # print(model.calculate(x))
+
 
         # Perform a single step on the example from class
         error, weights = model.train(x,y)
