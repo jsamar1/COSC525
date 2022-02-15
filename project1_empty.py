@@ -21,10 +21,7 @@ class Neuron:
         self.activation = activation
         self.input_num = input_num
         self.lr = lr
-        self.weights = weights
-        # if self.weights.any() == None:
-        #     self.weights = np.random.rand(1,self.input_num)
-        #print('constructor 1')    
+        self.weights = weights  
         
     #This method returns the activation of the net
     def activate(self,net):
@@ -41,10 +38,9 @@ class Neuron:
     #Calculate the output of the neuron should save the input and output for back-propagation.   
     def calculate(self,input):
         self.input = input
-        #print(self.weights,input)
         output = self.weights.dot(input)        #calculate w*x
         self.output = self.activate(output)     #activate and store output in neuron
-        #print('calculate 1')
+        
         return self.output
 
     #This method returns the derivative of the activation function with respect to the net   
@@ -53,7 +49,6 @@ class Neuron:
             deriv = 1                           #linear derivative
         if self.activation == 1:
             deriv = self.output*(1-self.output) #sigmoid derivative
-        #print('activationderivative')
         return deriv
     
     #This method calculates the partial derivative for each weight and returns the delta*w to be used in the previous layer
@@ -61,13 +56,11 @@ class Neuron:
         self.delta = wtimesdelta*self.activationderivative()*np.array(self.input) #dE/do*do/dn*dn/dw = dE/dw
         test = wtimesdelta*self.activationderivative() #dE/do*do/dn = dE/dn
         return self.delta, test  #saves delta in neuron to use in updateweight()
-        #print('calcpartialderivative')
     
     #Simply update the weights using the partial derivatives and the leranring weight
     def updateweight(self):
         self.weights = self.weights - self.lr*self.delta
         return self.weights
-        #print('updateweight')
 
 #A fully connected layer        
 class FullyConnected:
@@ -78,14 +71,10 @@ class FullyConnected:
         self.input_num = input_num
         self.lr = lr
         self.weights = weights
-        #Initalize weights if none given
-        # if self.weights.any() == None:
-        #     self.weights = np.random.rand(self.input_num,self.numOfNeurons)
+
         if np.size(self.weights) == self.input_num*self.numOfNeurons:  #changes number of neurons in the first layer to be accurate
             self.numOfNeurons = self.input_num
-        self.perceptron = [Neuron(self.activation,self.input_num,self.lr,self.weights[i]) for i in range(self.numOfNeurons)]
-        #print('constructor 2') 
-        
+        self.perceptron = [Neuron(self.activation,self.input_num,self.lr,self.weights[i]) for i in range(self.numOfNeurons)]        
         
     #calcualte the output of all the neurons in the layer and return a vector with those values (go through the neurons and call the calcualte() method)      
     def calculate(self, input):
@@ -95,7 +84,6 @@ class FullyConnected:
             perceptron = self.perceptron[i]
             value = perceptron.calculate(input)  #calculates the value of the neuron
             outputs.append(value)
-        #print('calculate 2')
         return outputs
         
     #given the next layer's w*delta, should run through the neurons calling calcpartialderivative() for each (with the correct value), sum up its ownw*delta, and then update the wieghts (using the updateweight() method). I should return the sum of w*delta.          
@@ -103,12 +91,10 @@ class FullyConnected:
         delta = 0
         for i in range(self.numOfNeurons):
             perceptron = self.perceptron[i]
-            #grad = perceptron.calcpartialderivative(wtimesdelta[i])[0]*self.weights[i,:]/self.input  #dE/dw * dn_o/do_h / (dn/dw) = dE/do_h
             grad = perceptron.calcpartialderivative(wtimesdelta[i])[1]*self.weights[i,:] #dE/dn*dn/h = dE/dh
             delta += grad #sums the gradients for each weight from each neuron 
             self.weights[i,:] = perceptron.updateweight()
         return delta
-        #print('calcwdeltas') 
            
 #An entire neural network        
 class NeuralNetwork:
@@ -129,7 +115,6 @@ class NeuralNetwork:
             except:
                 pass
             self.layer.append(FullyConnected(self.numOfNeurons,self.activation,self.inputSize,self.lr,self.weights[i])) #instantiate layers, changing output layer to 1 neuron for xor gate
-        #print('constructor 3')
     
     #Given an input, calculate the output (using the layers calculate() method)
     def calculate(self,input):
@@ -144,7 +129,6 @@ class NeuralNetwork:
                 outputs.append(value[:])
             else:
                 outputs.append(value[:self.numOfNeurons]) #appends the vector without the bias since its the last layer
-        #print('calculate 3')
         return outputs
     
     #Given a predicted output and ground truth output simply return the loss (depending on the loss function)
@@ -155,22 +139,17 @@ class NeuralNetwork:
         if self.loss == 1:
             y = y[0]
             yp = yp[0]
-            #error = (1 / len(y)) * -1 * np.sum( (y * np.log(yp) + np.subtract(ones, y) * np.log(np.subtract(ones, yp))) )
             error = -(y*np.log(yp) + (1-y)*np.log(1-yp))
         return error
-        #print('calculate loss')
     
     #Given a predicted output and ground truth output simply return the derivative of the loss (depending on the loss function)        
     def lossderiv(self,yp,y):
+        ones = [1] * len(y)
         if self.loss == 0:
             errorderiv = -(y-yp)  #yp is the predicted y values (outputs)
         if self.loss == 1:
-            y = y[0] # convert to float to calculations
-            yp = yp[0] # convert to float
-            errorderiv = -y/yp +(1-y)/(1-yp)
-            errorderiv = np.expand_dims(errorderiv,axis=0) #allows indexing of wtimesdelta e.g. errorderiv[0]
+            errorderiv = -y/yp + np.subtract(ones, y)/np.subtract(ones, yp)
         return errorderiv
-        #print('lossderiv')
     
     #Given a single input and desired output preform one step of backpropagation (including a forward pass, getting the derivative of the loss, and then calling calcwdeltas for layers with the right values         
     def train(self,x,y):
@@ -184,7 +163,6 @@ class NeuralNetwork:
             wdeltas = layer.calcwdeltas(wtimesdelta)
             wtimesdelta = wdeltas
         return [error, self.weights]
-        #print('train')
 
 if __name__=="__main__":
     if(len(sys.argv) < 2):
@@ -192,10 +170,7 @@ if __name__=="__main__":
         w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])     #runs the example from class, uncomment the block to train
         x=np.array([0.05,0.1])
         y = np.array([0.01,0.99])
-        # model = NeuralNetwork(2,2,2,1,0,0.5,w)
-        # error, weights = model.train(x,y)
 
-        # print(f'Error: {error}\nWeights: {[[w[:-1] for w in we] for we in weights]}')
         errors = []
         model = NeuralNetwork(2,2,2,ACTIVATION_FUNCTION,LOSS_FUNCTION,0.001,w)
         for i in range(EPOCHS_VALUE):
@@ -207,7 +182,7 @@ if __name__=="__main__":
         plt.title('Example from Class')
         plt.show()
     elif(sys.argv[2] == 'graphs'):
-        learningRates = [.001, .01, .05, .1, .2, .3, .5]
+        learningRates = [.00001, .0001, .001, .01, .05, .1, .2, .3]
         lossFunctions = [0, 1] # 0 == means squared, 1 == binary cross entropy
         plotTitles = ["Mean Square Error Loss", "Binary Cross Entropy Loss"]
         actFuncs = ["Linear Activation", "Logistic Activation"]
@@ -218,22 +193,27 @@ if __name__=="__main__":
         x=np.array([0.05,0.1])
         y = np.array([0.01, 0.99])
         # def __init__(self,numOfLayers,numOfNeurons, inputSize, activation, loss, lr, weights=None):
-        for activationFunc in lossFunctions:
+        for activationFunc in actFuncs:
             for loss in lossFunctions:
+                print(f'Act: {activationFunc}')
+                print(f'Loss: {loss}')
+                if(loss == 1 and activationFunc == 'Linear Activation'):
+                    print('skip')
+                    continue
                 plt.figure(loss)
-                plt.title(plotTitles[loss] + " - " + actFuncs[activationFunc])
+                plt.title(plotTitles[loss] + " - " + activationFunc)
                 plt.ylabel("Error Value")
                 plt.xlabel("Epoch")
                 for rate in learningRates:
                     errors = []
-                    w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])     #will put example above here eventually
-                    model = NeuralNetwork(2,2,2,activationFunc,loss,rate,w)
+                    w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])    
+                    model = NeuralNetwork(2,2,2,actFuncs.index(activationFunc),loss,rate,w)
                     for i in range(EPOCHS_VALUE):
                         error, w = model.train(x,y)
                         errors.append(error)
                     plt.plot(errors, label=str(rate))
                 plt.legend(loc="upper right")
-                plt.savefig(plotTitles[loss].lower().replace(" ", "") + "_" + actFuncs[activationFunc])
+                plt.savefig(plotTitles[loss].lower().replace(" ", "") + "_" + activationFunc)
                 plt.show()  
     elif (sys.argv[2]=='example'):
         learningRate = float(sys.argv[1])
