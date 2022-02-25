@@ -116,6 +116,7 @@ class ConvolutionalLayer:
         self.input = input
         window = np.lib.stride_tricks.sliding_window_view(input,(self.kernelSize,self.kernelSize,self.inputSize[2]))
         window = window.reshape(self.numOfKernels,self.numOfNeurons,self.kernelSize**2*self.inputSize[2])
+        
         #height = width = self.inputSize[0] - kernelSize + 1 # inputSize - kernelSize + 1
         outputs = []
         for i, kernel in enumerate(self.kernels):
@@ -125,7 +126,20 @@ class ConvolutionalLayer:
                 value = perceptron.calculate(x)
                 outputs.append(value)
         return outputs
-    
+
+class MaxPoolingLayer:
+    def __init__(self, poolSize, inputSize):
+        self.poolSize = poolSize
+        self.inputSize = inputSize
+        self.numOfNeurons = ((inputSize[0]-poolSize)//poolSize + 1)
+        
+    def calculate(self,input):
+        self.input = input
+        window = np.lib.stride_tricks.sliding_window_view(x,(self.poolSize,self.poolSize,4))[::self.poolSize,::self.poolSize]
+        window = window.reshape(self.numOfNeurons,self.numOfNeurons,self.poolSize**2,self.inputSize[2])
+        #window should be indexed with [0,0,:,0] where it is [i,j,:,channel, the : selects all values in the window]
+        return window        
+
 #An entire neural network        
 class NeuralNetwork:
     #initialize with the number of layers, number of neurons in each layer (vector), input size, activation (for each layer), the loss function, the learning rate and a 3d matrix of weights weights (or else initialize randomly)
@@ -209,6 +223,10 @@ if __name__=="__main__":
         weights = np.ones([2,2,3,1])
         x = np.arange(1,28).reshape(3,3,3)
         test = ConvolutionalLayer(1, 2, 0, [3,3,3], 0.1, weights)
+        x = np.arange(1,65).reshape(4,4,4)
+        test = MaxPoolingLayer(2,[4,4,4])
+        window = np.lib.stride_tricks.sliding_window_view(x,(2,2,4))[::2,::2]
+        window = window.reshape(2,2,4,4)
         print(test.calculate(x))
         # w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])     #runs the example from class, uncomment the block to train
         # x=np.array([0.05,0.1])
