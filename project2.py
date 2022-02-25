@@ -21,7 +21,7 @@ class Neuron:
         self.activation = activation
         self.input_num = input_num
         self.lr = lr
-        self.weights = weights  
+        self.weights = weights.flatten()
         
     #This method returns the activation of the net
     def activate(self,net):
@@ -103,27 +103,29 @@ class ConvolutionalLayer:
         self.activation = activation
         self.inputSize = inputSize # 3 dimensional
         self.lr = lr
-        if not weights:
-            weights = np.random.rand(kernalSize,kernelSize,inputSize[2],numOfKernels)
+        # if not weights:
+        #     weights = np.random.rand(kernalSize,kernelSize,inputSize[2],numOfKernels)
         self.weights = weights
-        self.numOfNeurons = ((inputSize[0]-kernelSize)**2 + 1)
+        self.numOfNeurons = ((inputSize[0]-kernelSize+1)**2)
         self.kernels = [] #each sublist holds the neurons of a kernel
         for i in range(numOfKernels):
-            self.perceptron = [Neuron(self.activation,self.inputSize,self.lr,self.weights[:,:,:,i]) for j in range(numOfNeurons)]
+            self.perceptron = [Neuron(self.activation,self.inputSize,self.lr,self.weights[:,:,:,i]) for j in range(self.numOfNeurons)]
             self.kernels.append(self.perceptron)
             
     def calculate(self,input):
         self.input = input
-        window = np.lib.stride_tricks.sliding_window_view(input,(kernelSize,kernelSize,inputSize[2]))
-        height = width = self.inputSize[0] - kernelSize + 1 # inputSize - kernelSize + 1
+        window = np.lib.stride_tricks.sliding_window_view(input,(self.kernelSize,self.kernelSize,self.inputSize[2]))
+        window = window.reshape(self.numOfKernels,self.numOfNeurons,self.kernelSize**2*self.inputSize[2])
+        #height = width = self.inputSize[0] - kernelSize + 1 # inputSize - kernelSize + 1
+        outputs = []
         for i, kernel in enumerate(self.kernels):
             for j, perceptron in enumerate(kernel):
-                x = window[i][j].flatten() #
-                perceptron.calculate(window[i][j])
-        for h in range(height):
-            for w in range(width):
-                print(window[h][w].flatten().shape)
-        
+                #print(window[i].shape)
+                x = window[i,j,:].flatten() #
+                value = perceptron.calculate(x)
+                outputs.append(value)
+        return outputs
+    
 #An entire neural network        
 class NeuralNetwork:
     #initialize with the number of layers, number of neurons in each layer (vector), input size, activation (for each layer), the loss function, the learning rate and a 3d matrix of weights weights (or else initialize randomly)
@@ -197,14 +199,17 @@ class NeuralNetwork:
 if __name__=="__main__":
     if(len(sys.argv) < 2):
         print('a good place to test different parts of your codes')
-        np.random.seed(4)
-        a = np.random.rand(3,3,3)
-        test = np.lib.stride_tricks.sliding_window_view(a,(2,2,3))
-        height = width = 2 # inputSize - kernelSize + 1
-        for h in range(height):
-            for w in range(width):
-                print(test[h][w].flatten().shape)
-        
+        # np.random.seed(4)
+        # a = np.random.rand(3,3,3)
+        # test = np.lib.stride_tricks.sliding_window_view(a,(2,2,3))
+        # height = width = 2 # inputSize - kernelSize + 1
+        # for h in range(height):
+        #     for w in range(width):
+        #         print(test[h][w].flatten().shape)
+        weights = np.ones([2,2,3,1])
+        x = np.arange(1,28).reshape(3,3,3)
+        test = ConvolutionalLayer(1, 2, 0, [3,3,3], 0.1, weights)
+        print(test.calculate(x))
         # w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])     #runs the example from class, uncomment the block to train
         # x=np.array([0.05,0.1])
         # y = np.array([0.01,0.99])
