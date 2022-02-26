@@ -135,11 +135,34 @@ class MaxPoolingLayer:
         
     def calculate(self,input):
         self.input = input
-        window = np.lib.stride_tricks.sliding_window_view(x,(self.poolSize,self.poolSize,4))[::self.poolSize,::self.poolSize]
+        window = np.lib.stride_tricks.sliding_window_view(input,(self.poolSize,self.poolSize,self.inputSize[2]))[::self.poolSize,::self.poolSize]
         window = window.reshape(self.numOfNeurons,self.numOfNeurons,self.poolSize**2,self.inputSize[2])
-        #window should be indexed with [0,0,:,0] where it is [i,j,:,channel, the : selects all values in the window]
-        return window        
+        print(window.shape)
+        #window should be indexed with [0,0,:,0] where it is [ith winddow,jth window,:,channel], the : selects all values in the window
+        out = np.empty([window.shape[0],window.shape[1],self.inputSize[2]])
+        self.idx = np.empty([window.shape[0],window.shape[1],self.inputSize[2]])
+        for i in range(window.shape[0]):
+            for j in range(window.shape[1]):
+                for k in range(self.inputSize[2]):
+                    reshaped = window[i,j,:,k].reshape(self.poolSize,self.poolSize)
+                    out[i,j,k] = max(window[i,j,:,k])
+                    self.idx[i,j,k] = np.argmax(window[i,j,:,k]) #index of max value in flattened window array
+        self.windowBack = window*0 #provides the framework for backprop
+        return out    
 
+    def calcwdeltas(self,wdelta):
+        window = np.lib.stride_tricks.sliding_window_view(0*self.input,(self.poolSize,self.poolSize,self.inputSize[2]))[::self.poolSize,::self.poolSize]
+        
+        
+        # for i in range(wdelta.shape[0]):
+        #     for j in range(wdelta.shape[1]):
+        #         for k in range(wdelta.shape[2]):
+        #             index = int(self.idx[i,j,k])
+
+        #             self.windowBack[i,j,index,k] = wdelta[i,j,k]
+        # self.windowBack = self.windowBack.reshape(self.input.shape)
+        # return self.windowBack
+        
 #An entire neural network        
 class NeuralNetwork:
     #initialize with the number of layers, number of neurons in each layer (vector), input size, activation (for each layer), the loss function, the learning rate and a 3d matrix of weights weights (or else initialize randomly)
@@ -213,21 +236,15 @@ class NeuralNetwork:
 if __name__=="__main__":
     if(len(sys.argv) < 2):
         print('a good place to test different parts of your codes')
-        # np.random.seed(4)
-        # a = np.random.rand(3,3,3)
-        # test = np.lib.stride_tricks.sliding_window_view(a,(2,2,3))
-        # height = width = 2 # inputSize - kernelSize + 1
-        # for h in range(height):
-        #     for w in range(width):
-        #         print(test[h][w].flatten().shape)
-        weights = np.ones([2,2,3,1])
+        weights = np.ones([2,2,3,1]) # [kernelSize,kernelSize,inputSize[2],numOfkernels]
         x = np.arange(1,28).reshape(3,3,3)
         test = ConvolutionalLayer(1, 2, 0, [3,3,3], 0.1, weights)
-        x = np.arange(1,65).reshape(4,4,4)
-        test = MaxPoolingLayer(2,[4,4,4])
-        window = np.lib.stride_tricks.sliding_window_view(x,(2,2,4))[::2,::2]
-        window = window.reshape(2,2,4,4)
-        print(test.calculate(x))
+        
+        x = np.arange(1,217).reshape(6,6,6)
+        test = MaxPoolingLayer(2,x.shape)
+        maxs = test.calculate(x)
+        backs = test.calcwdeltas(maxs)
+    
         # w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])     #runs the example from class, uncomment the block to train
         # x=np.array([0.05,0.1])
         # y = np.array([0.01,0.99])
