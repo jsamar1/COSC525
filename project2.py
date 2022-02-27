@@ -110,36 +110,71 @@ class ConvolutionalLayer:
         self.kernels = [] #each sublist holds the neurons of a kernel
         for i in range(numOfKernels):
             self.perceptron = [Neuron(self.activation,self.inputSize,self.lr,self.weights[:,:,:,i]) for j in range(self.numOfNeurons)]
+            self.perceptron = np.array(self.perceptron).reshape((inputSize[0]-kernelSize+1),(inputSize[0]-kernelSize+1))
             self.kernels.append(self.perceptron)
             
     def calculate(self,input):
         self.input = input
-        window = np.lib.stride_tricks.sliding_window_view(input,(self.kernelSize,self.kernelSize,self.inputSize[2]))
-        window = window.reshape(self.numOfKernels,self.numOfNeurons,self.kernelSize**2*self.inputSize[2])
-        
         height = width = self.inputSize[0] - self.kernelSize + 1 # inputSize - kernelSize + 1
-        outputs = []
-        for i, kernel in enumerate(self.kernels):
-            for j, perceptron in enumerate(kernel):
-                #print(window[i].shape)
-                x = window[i,j,:].flatten() #
-                value = perceptron.calculate(x)
-                outputs.append(value)
-        outputs = np.array(outputs)
-        outputs = outputs.reshape((height,width,self.numOfKernels))
+        window = np.lib.stride_tricks.sliding_window_view(input,(self.kernelSize,self.kernelSize,self.inputSize[2]))
+        window = window.reshape(height,width,self.kernelSize**2*self.inputSize[2])
+        outputs = np.empty((height,width,self.numOfKernels))
+        for i in range(height):
+            for j in range(width):
+                for k in range(self.numOfKernels):
+                    section = self.kernels[k]
+                    perceptron = section[i,j]
+                    x = window[i,j,:].flatten()
+                    value = perceptron.calculate(x)
+                    #value = value.reshape(self.kernelSize,self.kernelSize,self.inputSize[2])
+                    outputs[i,j,k] = value
         return outputs
+    
+        # outputs = []
+        # for i, kernel in enumerate(self.kernels):
+        #     for j, perceptron in enumerate(kernel):
+        #         #print(window[i].shape)
+        #         x = window[i,j,:].flatten() #
+        #         value = perceptron.calculate(x)
+        #         outputs.append(value)
+        # outputs = np.array(outputs)
+        # outputs = outputs.reshape((height,width,self.numOfKernels))
+        # return outputs
 
     def calcwdeltas(self,wdelta):
-        print(self.inputSize[0]-self.kernelSize)
-        windowBack = np.zeros((self.inputSize))
-        for kernel in range(self.numOfKernels):
-            for i in range(self.inputSize[0]-self.kernelSize+1):
-                for j in range(self.inputSize[1]-self.kernelSize+1):
-                    for k in range(self.inputSize[2]):
-                        out = wdelta[i,j]*self.weights[:,:,k,kernel]
-                        print(out)
-                        windowBack[i*self.kernelSize:(i+1)*self.kernelSize,j*self.kernelSize:(j+1)*self.kernelSize,k] += out
-        return windowBack
+        out = np.zeros((self.numOfKernels,self.inputSize[0],self.inputSize[1],self.inputSize[2]))
+        height = width = self.inputSize[0] - self.kernelSize + 1 # inputSize - kernelSize + 1
+        for i in range(height):
+            for j in range(width):
+                for k in range(self.numOfKernels):
+                    wdeltaSection = wdelta[i,j,k]
+                    section = self.kernels[k]
+                    perceptron = section[i,j]
+                    grad = perceptron.calcpartialderivative(wdeltaSection)[0]
+                    grad = grad.reshape(self.kernelSize,self.kernelSize,self.inputSize[2])
+                    out[k, i:(i+1)*self.kernelSize,j:(j+1)*self.kernelSize,:] += grad
+        print(wdeltaSection)
+        return out
+        # print(out.shape)
+        # for i, kernel in enumerate(self.kernels):
+        #     wdeltaLayer = wdelta[:,:,i].flatten()
+        #     for j, perceptron in enumerate(kernel):
+        #         grad = perceptron.calcpartialderivative(wdeltaLayer[j])[0]
+        #         grad = grad.reshape(self.kernelSize*self.kernelSize,self.inputSize[2])
+        #         print(grad.shape)
+        #         out[i,j] += grad
+        # return out
+        
+        # print(self.inputSize[0]-self.kernelSize)
+        # windowBack = np.zeros((self.inputSize))
+        # for kernel in range(self.numOfKernels):
+        #     for i in range(self.inputSize[0]-self.kernelSize+1):
+        #         for j in range(self.inputSize[1]-self.kernelSize+1):
+        #             for k in range(self.inputSize[2]):
+        #                 out = wdelta[i,j]*self.weights[:,:,k,kernel]
+        #                 print(out)
+        #                 windowBack[i*self.kernelSize:(i+1)*self.kernelSize,j*self.kernelSize:(j+1)*self.kernelSize,k] += out
+        # return windowBack
         #given deltas, propogate them through the network. draw arrows from 1 given delta to the square piece of the array this matrix returns. each value is delta*w
         
 class MaxPoolingLayer:
@@ -197,7 +232,7 @@ class FlattenLayer:
         return np.flatten(input)
     
     def calcwdeltas(self,wdelta):
-        return wdelta.reshape(inputSize)
+        return wdelta.reshape(self.inputSize)
         
 #An entire neural network        
 class NeuralNetwork:
@@ -273,8 +308,9 @@ if __name__=="__main__":
     if(len(sys.argv) < 2):
         print('a good place to test different parts of your codes')
         weights = np.ones([2,2,3,1]) # [kernelSize,kernelSize,inputSize[2],numOfkernels]
-        x = np.arange(1,28).reshape(3,3,3)
-        test = ConvolutionalLayer(1, 2, 0, x.shape, 0.1, weights)
+        #x = np.arange(1,28).reshape(3,3,3)
+        x = np.ones([3,3,3])
+        test = ConvolutionalLayer(weights.shape[3], 2, 0, x.shape, 0.1, weights)
         foot = test.calculate(x)
         butt = test.calcwdeltas(foot)
         # x = np.arange(1,65).reshape(4,4,4)
