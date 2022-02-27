@@ -137,7 +137,6 @@ class MaxPoolingLayer:
         self.input = input
         window = np.lib.stride_tricks.sliding_window_view(input,(self.poolSize,self.poolSize,self.inputSize[2]))[::self.poolSize,::self.poolSize]
         window = window.reshape(self.numOfNeurons,self.numOfNeurons,self.poolSize**2,self.inputSize[2])
-        print(window.shape)
         #window should be indexed with [0,0,:,0] where it is [ith winddow,jth window,:,channel], the : selects all values in the window
         out = np.empty([window.shape[0],window.shape[1],self.inputSize[2]])
         self.idx = np.empty([window.shape[0],window.shape[1],self.inputSize[2]])
@@ -147,20 +146,31 @@ class MaxPoolingLayer:
                     reshaped = window[i,j,:,k].reshape(self.poolSize,self.poolSize)
                     out[i,j,k] = max(window[i,j,:,k])
                     self.idx[i,j,k] = np.argmax(window[i,j,:,k]) #index of max value in flattened window array
-        self.windowBack = window*0 #provides the framework for backprop
         return out    
 
     def calcwdeltas(self,wdelta):
-        window = np.lib.stride_tricks.sliding_window_view(0*self.input,(self.poolSize,self.poolSize,self.inputSize[2]))[::self.poolSize,::self.poolSize]
-        
-        
+        # window = np.lib.stride_tricks.sliding_window_view(self.input,(self.poolSize,self.poolSize,self.inputSize[2]),writeable=True)[::self.poolSize,::self.poolSize]
+        # window = window.reshape(self.input.shape)
+        # print(window.shape)
+        # return window
+        windowBack = np.empty((self.inputSize))
+        for i in range(wdelta.shape[0]):
+            for j in range(wdelta.shape[1]):
+                for k in range(wdelta.shape[2]):
+                    out = np.zeros((self.poolSize**2))
+                    index = int(self.idx[i,j,k])
+                    out[index] = wdelta[i,j,k]
+                    out = out.reshape(self.poolSize,self.poolSize)
+                    windowBack[i*self.poolSize:(i+1)*self.poolSize,j*self.poolSize:(j+1)*self.poolSize,k] = out
+        return windowBack
         # for i in range(wdelta.shape[0]):
         #     for j in range(wdelta.shape[1]):
         #         for k in range(wdelta.shape[2]):
+                    
         #             index = int(self.idx[i,j,k])
-
+                    
         #             self.windowBack[i,j,index,k] = wdelta[i,j,k]
-        # self.windowBack = self.windowBack.reshape(self.input.shape)
+        # self.windowBack = self.windowBack.reshape(self.inputSize)
         # return self.windowBack
         
 #An entire neural network        
@@ -240,7 +250,7 @@ if __name__=="__main__":
         x = np.arange(1,28).reshape(3,3,3)
         test = ConvolutionalLayer(1, 2, 0, [3,3,3], 0.1, weights)
         
-        x = np.arange(1,217).reshape(6,6,6)
+        x = np.arange(1,65).reshape(4,4,4)
         test = MaxPoolingLayer(2,x.shape)
         maxs = test.calculate(x)
         backs = test.calcwdeltas(maxs)
