@@ -117,7 +117,7 @@ class ConvolutionalLayer:
         window = np.lib.stride_tricks.sliding_window_view(input,(self.kernelSize,self.kernelSize,self.inputSize[2]))
         window = window.reshape(self.numOfKernels,self.numOfNeurons,self.kernelSize**2*self.inputSize[2])
         
-        #height = width = self.inputSize[0] - kernelSize + 1 # inputSize - kernelSize + 1
+        height = width = self.inputSize[0] - self.kernelSize + 1 # inputSize - kernelSize + 1
         outputs = []
         for i, kernel in enumerate(self.kernels):
             for j, perceptron in enumerate(kernel):
@@ -125,8 +125,23 @@ class ConvolutionalLayer:
                 x = window[i,j,:].flatten() #
                 value = perceptron.calculate(x)
                 outputs.append(value)
+        outputs = np.array(outputs)
+        outputs = outputs.reshape((height,width,self.numOfKernels))
         return outputs
 
+    def calcwdeltas(self,wdelta):
+        print(self.inputSize[0]-self.kernelSize)
+        windowBack = np.zeros((self.inputSize))
+        for kernel in range(self.numOfKernels):
+            for i in range(self.inputSize[0]-self.kernelSize+1):
+                for j in range(self.inputSize[1]-self.kernelSize+1):
+                    for k in range(self.inputSize[2]):
+                        out = wdelta[i,j]*self.weights[:,:,k,kernel]
+                        print(out)
+                        windowBack[i*self.kernelSize:(i+1)*self.kernelSize,j*self.kernelSize:(j+1)*self.kernelSize,k] += out
+        return windowBack
+        #given deltas, propogate them through the network. draw arrows from 1 given delta to the square piece of the array this matrix returns. each value is delta*w
+        
 class MaxPoolingLayer:
     def __init__(self, poolSize, inputSize):
         self.poolSize = poolSize
@@ -172,6 +187,17 @@ class MaxPoolingLayer:
         #             self.windowBack[i,j,index,k] = wdelta[i,j,k]
         # self.windowBack = self.windowBack.reshape(self.inputSize)
         # return self.windowBack
+        
+class FlattenLayer:
+    def __init__(self,inputSize):
+        self.inputSize = inputSize
+        
+    def calculate(self,input):
+        self.input = input
+        return np.flatten(input)
+    
+    def calcwdeltas(self,wdelta):
+        return wdelta.reshape(inputSize)
         
 #An entire neural network        
 class NeuralNetwork:
@@ -248,12 +274,13 @@ if __name__=="__main__":
         print('a good place to test different parts of your codes')
         weights = np.ones([2,2,3,1]) # [kernelSize,kernelSize,inputSize[2],numOfkernels]
         x = np.arange(1,28).reshape(3,3,3)
-        test = ConvolutionalLayer(1, 2, 0, [3,3,3], 0.1, weights)
-        
-        x = np.arange(1,65).reshape(4,4,4)
-        test = MaxPoolingLayer(2,x.shape)
-        maxs = test.calculate(x)
-        backs = test.calcwdeltas(maxs)
+        test = ConvolutionalLayer(1, 2, 0, x.shape, 0.1, weights)
+        foot = test.calculate(x)
+        butt = test.calcwdeltas(foot)
+        # x = np.arange(1,65).reshape(4,4,4)
+        # test = MaxPoolingLayer(2,x.shape)
+        # maxs = test.calculate(x)
+        # backs = test.calcwdeltas(maxs)
     
         # w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])     #runs the example from class, uncomment the block to train
         # x=np.array([0.05,0.1])
