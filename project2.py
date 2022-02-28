@@ -1,7 +1,7 @@
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
-
+from parameters import generateExample1, generateExample2, generateExample3
 """
 For this entire file there are a few constants:
 activation:
@@ -15,6 +15,7 @@ LOSS_FUNCTION = 1
 ACTIVATION_FUNCTION = 1
 EPOCHS_VALUE = 1000
 # A class which represents a single neuron
+out2 = np.array([0.99975, 0.99974, 0.99977, 0.99976, 0.99975, 0.99977, 0.99976, 0.99977, 0.99978])
 class Neuron:
     #initilize neuron with activation type, number of inputs, learning rate, and possibly with set weights
     def __init__(self,activation, input_num, lr, weights=None):
@@ -27,19 +28,19 @@ class Neuron:
     def activate(self,net):
         sigmoid = 1/(1+np.exp(-net))
         if self.activation == 0:
-            output = net
+            self.output = net
         elif self.activation == 1:
-            output = sigmoid
+            self.output = sigmoid
         else:
             print('Incorrect activation. Choose 0 or 1')
         #print('activate')   
-        return output
+        return self.output
 
     #Calculate the output of the neuron should save the input and output for back-propagation.   
     def calculate(self,input):
         self.input = input
-        output = self.weights.dot(input)        #calculate w*x
-        self.output = self.activate(output)     #activate and store output in neuron
+        self.output = self.weights.dot(input)        #calculate w*x
+        #self.output = self.activate(output)     #activate and store output in neuron
         
         return self.output
 
@@ -72,17 +73,19 @@ class FullyConnected:
         self.lr = lr
         self.weights = weights
 
-        if np.size(self.weights) == self.input_num*self.numOfNeurons:  #changes number of neurons in the first layer to be accurate
-            self.numOfNeurons = self.input_num
+        # if np.size(self.weights) == self.input_num*self.numOfNeurons:  #changes number of neurons in the first layer to be accurate
+        #     self.numOfNeurons = self.input_num
         self.perceptron = [Neuron(self.activation,self.input_num,self.lr,self.weights[i]) for i in range(self.numOfNeurons)]        
         
     #calcualte the output of all the neurons in the layer and return a vector with those values (go through the neurons and call the calcualte() method)      
     def calculate(self, input):
+        input = np.append(input,1) # adds bias node
         self.input = input #saves input in layer
         outputs = []  
         for i in range(self.numOfNeurons):
             perceptron = self.perceptron[i]
             value = perceptron.calculate(input)  #calculates the value of the neuron
+            value = perceptron.activate(value)
             outputs.append(value)
         return outputs
         
@@ -126,9 +129,15 @@ class ConvolutionalLayer:
                     section = self.kernels[k]
                     perceptron = section[i,j]
                     x = window[i,j,:].flatten()
+                    
                     value = perceptron.calculate(x) + self.b[k] # w*X + b
+                    value = perceptron.activate(value)
                     #value = value.reshape(self.kernelSize,self.kernelSize,self.inputSize[2])
                     outputs[i,j,k] = value
+        
+        # self.b = np.expand_dims(self.b,axis=(0,1))
+        # outputs = outputs + self.b
+        # print(self.b.shape)
         return outputs
     
         # outputs = []
@@ -143,8 +152,8 @@ class ConvolutionalLayer:
         # return outputs
 
     def calcwdeltas(self,wdelta):
-        out = np.zeros((self.numOfKernels,self.inputSize[0],self.inputSize[1],self.inputSize[2]))
-        grad_b = 0
+        delta = np.zeros((self.numOfKernels,self.inputSize[0],self.inputSize[1],self.inputSize[2]))
+        grad_b = np.zeros((self.b.shape))
         height = width = wdelta.shape[0] #self.inputSize[0] - self.kernelSize + 1 # inputSize - kernelSize + 1
         for i in range(height):
             for j in range(width):
@@ -152,16 +161,13 @@ class ConvolutionalLayer:
                     wdeltaSection = wdelta[i,j,k]
                     section = self.kernels[k]
                     perceptron = section[i,j]
-                    grad = perceptron.calcpartialderivative(wdeltaSection)[0]
-                    weights = perceptron.updateweight()
+                    grad = perceptron.calcpartialderivative(wdeltaSection)[1]*self.weights[:,:,:,k] # dE/do*do/dn*dn/dw
                     grad = grad.reshape(self.kernelSize,self.kernelSize,self.inputSize[2])
-                    print(grad.shape)
-                    grad_b += wdeltaSection*1
-                    out[k, i:(i+1)*self.kernelSize,j:(j+1)*self.kernelSize,:] += grad
-                    print(out)
-        self.weights = self.weights - lr*out
-        self.b = self.b - lr*grad_b
-        return self.weights, self.b
+                    grad_b[k] += wdeltaSection*1
+                    delta[k, i:i+self.kernelSize,j:j+self.kernelSize,:] += grad
+                    self.weights[:,:,:,k] = perceptron.updateweight().reshape(self.weights[:,:,:,k].shape)
+                    self.b[k] = self.b[k] - self.lr*grad_b[k]
+        return delta
         # print(out.shape)
         # for i, kernel in enumerate(self.kernels):
         #     wdeltaLayer = wdelta[:,:,i].flatten()
@@ -239,6 +245,7 @@ class FlattenLayer:
         return input.flatten()
     
     def calcwdeltas(self,wdelta):
+        wdelta = wdelta[:-1] # removes bias wdelta
         return wdelta.reshape(self.inputSize)
         
 #An entire neural network        
@@ -276,7 +283,6 @@ class NeuralNetwork:
         
     #Given an input, calculate the output (using the layers calculate() method)
     def calculate(self,input):
-        input = np.append(input,1)
         outputs = [input]
         for i in range(self.numOfLayers):
             layer = self.layer[i]
@@ -325,54 +331,109 @@ class NeuralNetwork:
 if __name__=="__main__":
     if(len(sys.argv) < 2):
         print('a good place to test different parts of your codes')
-        np.random.seed(10)
-        l1k1=np.random.rand(3,3)
-        l1k1 = np.expand_dims(l1k1,axis=(2,3))
-        l1k2=np.random.rand(3,3)
-        l1k2 = np.expand_dims(l1k2,axis=(2,3))
-        weights0 = np.concatenate((l1k1,l1k2),axis=3)
-        l1b1=np.random.rand(1)
-        l1b2=np.random.rand(1)
-        b0 = np.concatenate((l1b1,l1b2),axis=0)
-        
-        l2c1=np.random.rand(3,3)
-        l2c1 = np.expand_dims(l2c1,axis=(2,3))
-        l2c2=np.random.rand(3,3)
-        l2c2 = np.expand_dims(l2c2,axis=(2,3))
-        b1=np.random.rand(1)
-        weights1 = np.concatenate((l2c1,l2c2),axis=2)
-        
-        l3=np.random.rand(1,9)
-        l3b=np.random.rand(1)
-        l3b = np.expand_dims((l3b),axis=0)
-        weights3 = np.concatenate((l3,l3b),axis=1)
-        
-        input=np.random.rand(7,7)
-        input = np.expand_dims((input),axis=2)
-        output=np.random.rand(1)
-        
-        l0 = ConvolutionalLayer(2, 3, 1, input.shape, 100, weights0, b0)
-        l1 = ConvolutionalLayer(1, 3, 1, [5,5,2], 100, weights1, b1)
-        l2 = FlattenLayer([3,3,1])
-        l3 = FullyConnected(1, 1, 9, 100, weights3)
-        
-        out0 = l0.calculate(input)
-        out1 = l1.calculate(out0)
-        out2 = l2.calculate(out1)
-        out2 = np.append(out2,1)
-        out3 = l3.calculate(out2)
-        
-        net = NeuralNetwork(1, 0, 100)
-        wtimesdelta = net.lossderiv(0.99653, output)
-        d3 = l3.calcwdeltas(wtimesdelta)[:-1] #delta sent back w/o bias
-        l1.calcwdeltas(d3.reshape(out1.shape))
-        print(l3.weights)
 
-        # weights = np.ones([2,2,3,1]) # [kernelSize,kernelSize,inputSize[2],numOfkernels]
-        # b = np.ones([1]) # numOfKernels
+        # l1k1,l1k2,l1b1,l1b2,l2c1,l2c2,l2b,l3,l3b,input, output = generateExample2()
+        # l1k1 = np.expand_dims(l1k1,axis=(2,3))
+        # l1k2 = np.expand_dims(l1k2,axis=(2,3))
+        # weights0 = np.concatenate((l1k1,l1k2),axis=3)
+        # b0 = np.concatenate((l1b1,l1b2),axis=0)
+        
+        # l2c1 = np.expand_dims(l2c1,axis=(2,3))
+        # l2c2 = np.expand_dims(l2c2,axis=(2,3))
+        # b1 = l2b
+        # weights1 = np.concatenate((l2c1,l2c2),axis=2)
+        
+        # l3b = np.expand_dims((l3b),axis=0)
+        # weights3 = np.concatenate((l3,l3b),axis=1)
+
+        # input = np.expand_dims((input),axis=2)
+        
+        # l0 = ConvolutionalLayer(2, 3, 1, input.shape, 10, weights0, b0)
+        # l1 = ConvolutionalLayer(1, 3, 1, [5,5,2], 100, weights1, b1)
+        # l2 = FlattenLayer([3,3,1])
+        # l3 = FullyConnected(1, 1, 9, 10, weights3)
+        # net = NeuralNetwork(1, 0, .1)
+        
+        # for i in range(10):
+        #     out0 = l0.calculate(input)
+        #     out1 = l1.calculate(out0)
+        #     out2 = l2.calculate(out1)
+        #     out3 = l3.calculate(out2)
+            
+            
+        #     wtimesdelta = net.lossderiv(out3, output)
+        #     d3 = l3.calcwdeltas(wtimesdelta)[:-1] #delta sent back w/o bias
+        #     d1 = l1.calcwdeltas(d3.reshape(out1.shape))
+        #     d0 = l0.calcwdeltas(d1.reshape(out0.shape))
+            
+        #     out0 = l0.calculate(input)
+        #     out1 = l1.calculate(out0)
+        #     out2 = l2.calculate(out1)
+        #     out3_new = l3.calculate(out2)
+        #     print(out3,out3_new, output)
+        
+        
+        # weights0,b0,weights2,input,output = generateExample1()
+        
+        # l0 = ConvolutionalLayer(1,3, 1, input.shape, 10, weights0, b0)
+        # l1 = FlattenLayer([3,3,1])
+        # l2 = FullyConnected(1,1,10,10,weights2)
+        # net = NeuralNetwork(1, 0, .1)
+        
+        # for i in range(10):
+        #     out0 = l0.calculate(input)
+        #     out1 = l1.calculate(out0)
+        #     out2 = l2.calculate(out1)
+            
+        #     wtimesdelta = net.lossderiv(out2, output)
+        #     d2 = l2.calcwdeltas(wtimesdelta)
+        #     d1 = l1.calcwdeltas(d2)
+        #     d0 = l0.calcwdeltas(d1)
+            
+        #     out0 = l0.calculate(input)
+        #     out1 = l1.calculate(out0)
+        #     out2_new = l2.calculate(out1)
+        #     print(out2,out2_new, output)
+        
+        
+        weights0,b0,weights3,input,output = generateExample3()
+
+        l0 = ConvolutionalLayer(2,3, 1, input.shape, 5, weights0, b0)
+        l1 = MaxPoolingLayer(2, [6,6,2])
+        l2 = FlattenLayer([3,3,2])
+        l3 = FullyConnected(1,1,10,5,weights3)
+        net = NeuralNetwork(1, 0, .1)
+        
+        for i in range(1):
+            out0 = l0.calculate(input)
+            out1 = l1.calculate(out0)
+            out2 = l2.calculate(out1)
+            out3 = l3.calculate(out2)
+            
+            wtimesdelta = net.lossderiv(out2, output)
+            d3 = l3.calcwdeltas(wtimesdelta)
+            d2 = l2.calcwdeltas(d3)
+            d1 = l1.calcwdeltas(d2)
+            d0 = l0.calcwdeltas(d1)
+            
+            out0 = l0.calculate(input)
+            out1 = l1.calculate(out0)
+            out2 = l2.calculate(out1)
+            out3_new = l3.calculate(out2)
+            print(out3,out3_new, output)
+            
+        
+        
+        
+        
+        
+        # weights0 = np.ones([3,3,1,1]) # [kernelSize,kernelSize,inputSize[2],numOfkernels]
+        # weights1 = np.ones([3,3,1,1])*2
+        # weights = np.concatenate((weights0,weights1),axis=3)
+        # b = np.ones([2]) # numOfKernels
         # #x = np.arange(1,28).reshape(3,3,3)
-        # x = np.ones([3,3,3])
-        # test = ConvolutionalLayer(weights.shape[3], 2, 0, x.shape, 0.1, weights, b)
+        # x = np.arange(1,26).reshape(5,5,1)
+        # test = ConvolutionalLayer(weights.shape[3], 3, 0, x.shape, 0.1, weights, b)
         # foot = test.calculate(x)
         # butt = test.calcwdeltas(foot)
     
@@ -443,7 +504,7 @@ if __name__=="__main__":
         print(f'[ [w1, w2], [w3, w4], [w5, w6], [w7, w8] ]')
 
         errors = []
-        model = NeuralNetwork(2,2,2,ACTIVATION_FUNCTION,LOSS_FUNCTION,learningRate,w)
+        model = NeuralNetwork(2,0,2,ACTIVATION_FUNCTION,LOSS_FUNCTION,learningRate,w)
         for i in range(EPOCHS_VALUE):
             error, w = model.train(x,y)
             errors.append(error)
