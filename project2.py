@@ -97,7 +97,7 @@ class FullyConnected:
         return delta
  
 class ConvolutionalLayer:
-    def __init__(self,numOfKernels, kernelSize, activation, inputSize, lr, weights=None):
+    def __init__(self,numOfKernels, kernelSize, activation, inputSize, lr, weights=None,b=None):
         self.numOfKernels = numOfKernels
         self.kernelSize = kernelSize
         self.activation = activation
@@ -106,6 +106,7 @@ class ConvolutionalLayer:
         # if not weights:
         #     weights = np.random.rand(kernalSize,kernelSize,inputSize[2],numOfKernels)
         self.weights = weights
+        self.b = b
         self.numOfNeurons = ((inputSize[0]-kernelSize+1)**2)
         self.kernels = [] #each sublist holds the neurons of a kernel
         for i in range(numOfKernels):
@@ -125,7 +126,7 @@ class ConvolutionalLayer:
                     section = self.kernels[k]
                     perceptron = section[i,j]
                     x = window[i,j,:].flatten()
-                    value = perceptron.calculate(x)
+                    value = perceptron.calculate(x) + self.b[k] # w*X + b
                     #value = value.reshape(self.kernelSize,self.kernelSize,self.inputSize[2])
                     outputs[i,j,k] = value
         return outputs
@@ -143,7 +144,8 @@ class ConvolutionalLayer:
 
     def calcwdeltas(self,wdelta):
         out = np.zeros((self.numOfKernels,self.inputSize[0],self.inputSize[1],self.inputSize[2]))
-        height = width = self.inputSize[0] - self.kernelSize + 1 # inputSize - kernelSize + 1
+        grad_b = 0
+        height = width = wdelta.shape[0] #self.inputSize[0] - self.kernelSize + 1 # inputSize - kernelSize + 1
         for i in range(height):
             for j in range(width):
                 for k in range(self.numOfKernels):
@@ -151,10 +153,15 @@ class ConvolutionalLayer:
                     section = self.kernels[k]
                     perceptron = section[i,j]
                     grad = perceptron.calcpartialderivative(wdeltaSection)[0]
+                    weights = perceptron.updateweight()
                     grad = grad.reshape(self.kernelSize,self.kernelSize,self.inputSize[2])
+                    print(grad.shape)
+                    grad_b += wdeltaSection*1
                     out[k, i:(i+1)*self.kernelSize,j:(j+1)*self.kernelSize,:] += grad
-        print(wdeltaSection)
-        return out
+                    print(out)
+        self.weights = self.weights - lr*out
+        self.b = self.b - lr*grad_b
+        return self.weights, self.b
         # print(out.shape)
         # for i, kernel in enumerate(self.kernels):
         #     wdeltaLayer = wdelta[:,:,i].flatten()
@@ -229,7 +236,7 @@ class FlattenLayer:
         
     def calculate(self,input):
         self.input = input
-        return np.flatten(input)
+        return input.flatten()
     
     def calcwdeltas(self,wdelta):
         return wdelta.reshape(self.inputSize)
@@ -241,6 +248,7 @@ class NeuralNetwork:
         self.inputSize = inputSize
         self.loss = loss
         self.lr = lr
+        self.layer = []
         # self.layer = []
         # for i in range(self.numOfLayers):
         #     try: #handles the case where sys.argv[1] does not exist
@@ -250,11 +258,21 @@ class NeuralNetwork:
         #         pass
         #     self.layer.append(FullyConnected(self.numOfNeurons,self.activation,self.inputSize,self.lr,self.weights[i])) #instantiate layers, changing output layer to 1 neuron for xor gate
     
-    def addLayer(self,genre):
-        if genre == 'Conv':
-            layer = ConvolutionalLayer()
-        if genre == 'FC':
-            layer = FullyConnected(numOfNeurons, activation, input_num, lr)
+    def addConv(self,numOfKernels,kernelSize,activation,lr,weights=None, b=None):
+        if len(self.layer) == 0:
+            inputSize == self.inputSize
+        if weights == None:
+            weights = np.random.rand((self.inputSize))
+        if b == None:
+            b = np.random.rand((numOfKernels))
+        self.layer.append(ConvolutionalLayer(numOfKernels, kernelSize, activation, inputSize, lr, weights=None))
+    
+    def addFC(self,numOfNeurons, activation, input_num, lr, weights=None):
+        if len(self.layer) == 0:
+            input_num == self.inputSize
+        if weights == None:
+            weights = np.random.rand((self.inputSize))
+        self.layer.append(FullyConnected(numOfNeurons, activation, input_num, lr, weights=None))
         
     #Given an input, calculate the output (using the layers calculate() method)
     def calculate(self,input):
@@ -307,16 +325,56 @@ class NeuralNetwork:
 if __name__=="__main__":
     if(len(sys.argv) < 2):
         print('a good place to test different parts of your codes')
-        weights = np.ones([2,2,3,1]) # [kernelSize,kernelSize,inputSize[2],numOfkernels]
-        #x = np.arange(1,28).reshape(3,3,3)
-        x = np.ones([3,3,3])
-        test = ConvolutionalLayer(weights.shape[3], 2, 0, x.shape, 0.1, weights)
-        foot = test.calculate(x)
-        butt = test.calcwdeltas(foot)
-        # x = np.arange(1,65).reshape(4,4,4)
-        # test = MaxPoolingLayer(2,x.shape)
-        # maxs = test.calculate(x)
-        # backs = test.calcwdeltas(maxs)
+        np.random.seed(10)
+        l1k1=np.random.rand(3,3)
+        l1k1 = np.expand_dims(l1k1,axis=(2,3))
+        l1k2=np.random.rand(3,3)
+        l1k2 = np.expand_dims(l1k2,axis=(2,3))
+        weights0 = np.concatenate((l1k1,l1k2),axis=3)
+        l1b1=np.random.rand(1)
+        l1b2=np.random.rand(1)
+        b0 = np.concatenate((l1b1,l1b2),axis=0)
+        
+        l2c1=np.random.rand(3,3)
+        l2c1 = np.expand_dims(l2c1,axis=(2,3))
+        l2c2=np.random.rand(3,3)
+        l2c2 = np.expand_dims(l2c2,axis=(2,3))
+        b1=np.random.rand(1)
+        weights1 = np.concatenate((l2c1,l2c2),axis=2)
+        
+        l3=np.random.rand(1,9)
+        l3b=np.random.rand(1)
+        l3b = np.expand_dims((l3b),axis=0)
+        weights3 = np.concatenate((l3,l3b),axis=1)
+        
+        input=np.random.rand(7,7)
+        input = np.expand_dims((input),axis=2)
+        output=np.random.rand(1)
+        
+        l0 = ConvolutionalLayer(2, 3, 1, input.shape, 100, weights0, b0)
+        l1 = ConvolutionalLayer(1, 3, 1, [5,5,2], 100, weights1, b1)
+        l2 = FlattenLayer([3,3,1])
+        l3 = FullyConnected(1, 1, 9, 100, weights3)
+        
+        out0 = l0.calculate(input)
+        out1 = l1.calculate(out0)
+        out2 = l2.calculate(out1)
+        out2 = np.append(out2,1)
+        out3 = l3.calculate(out2)
+        
+        net = NeuralNetwork(1, 0, 100)
+        wtimesdelta = net.lossderiv(0.99653, output)
+        d3 = l3.calcwdeltas(wtimesdelta)[:-1] #delta sent back w/o bias
+        l1.calcwdeltas(d3.reshape(out1.shape))
+        print(l3.weights)
+
+        # weights = np.ones([2,2,3,1]) # [kernelSize,kernelSize,inputSize[2],numOfkernels]
+        # b = np.ones([1]) # numOfKernels
+        # #x = np.arange(1,28).reshape(3,3,3)
+        # x = np.ones([3,3,3])
+        # test = ConvolutionalLayer(weights.shape[3], 2, 0, x.shape, 0.1, weights, b)
+        # foot = test.calculate(x)
+        # butt = test.calcwdeltas(foot)
     
         # w=np.array([[[.15,.2,.35],[.25,.3,.35]],[[.4,.45,.6],[.5,.55,.6]]])     #runs the example from class, uncomment the block to train
         # x=np.array([0.05,0.1])
