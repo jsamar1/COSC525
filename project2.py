@@ -152,22 +152,19 @@ class ConvolutionalLayer:
         # return outputs
 
     def calcwdeltas(self,wdelta):
-        delta = np.zeros((self.numOfKernels,self.inputSize[0],self.inputSize[1],self.inputSize[2]))
+        delta = np.zeros((self.inputSize[0],self.inputSize[1],self.inputSize[2],self.numOfKernels))
         grad_b = np.zeros((self.b.shape))
         height = width = wdelta.shape[0] #self.inputSize[0] - self.kernelSize + 1 # inputSize - kernelSize + 1
-        print(height,width,self.numOfKernels)
-        print(wdelta.shape,'wdelta')
         for i in range(height):
             for j in range(width):
                 for k in range(self.numOfKernels):
                     wdeltaSection = wdelta[i,j,k]
                     section = self.kernels[k]
                     perceptron = section[i,j]
-                    print(wdeltaSection,(i,j,k))
                     grad = perceptron.calcpartialderivative(wdeltaSection)[1]*self.weights[:,:,:,k] # dE/do*do/dn*dn/dw
                     grad = grad.reshape(self.kernelSize,self.kernelSize,self.inputSize[2])
                     grad_b[k] += wdeltaSection*1
-                    delta[k, i:i+self.kernelSize,j:j+self.kernelSize,:] += grad
+                    delta[i:i+self.kernelSize,j:j+self.kernelSize,:, k] += grad
                     self.weights[:,:,:,k] = perceptron.updateweight().reshape(self.weights[:,:,:,k].shape)
                     self.b[k] = self.b[k] - self.lr*grad_b[k]
         return delta
@@ -318,7 +315,7 @@ class NeuralNetwork:
     def lossderiv(self,yp,y):
         ones = [1] * len(y)
         if self.loss == 0:
-            errorderiv = -(y-yp)  #yp is the predicted y values (outputs)
+            errorderiv = -2*(y-yp)  #yp is the predicted y values (outputs)
         if self.loss == 1:
             errorderiv = -y/yp + np.subtract(ones, y)/np.subtract(ones, yp)
         return errorderiv
@@ -334,6 +331,8 @@ class NeuralNetwork:
             layer = self.layer[i]
             wdeltas = layer.calcwdeltas(wtimesdelta)
             wtimesdelta = wdeltas
+        error = self.calculateloss(outputs[-1],y)
+        outputs = self.calculate(x)
         return [error, outputs]
 
 if __name__=="__main__":
@@ -356,13 +355,13 @@ if __name__=="__main__":
 
         input = np.expand_dims((input),axis=2)
         
-        # l0 = ConvolutionalLayer(2, 3, 1, input.shape, 10, weights0, b0)
+        # l0 = ConvolutionalLayer(2, 3, 1, input.shape, 100, weights0, b0)
         # l1 = ConvolutionalLayer(1, 3, 1, [5,5,2], 100, weights1, b1)
         # l2 = FlattenLayer([3,3,1])
-        # l3 = FullyConnected(1, 1, 9, 10, weights3)
+        # l3 = FullyConnected(1, 1, 9, 100, weights3)
         # net = NeuralNetwork(1, 0, .1)
         
-        # for i in range(10):
+        # for i in range(1):
         #     out0 = l0.calculate(input)
         #     out1 = l1.calculate(out0)
         #     out2 = l2.calculate(out1)
@@ -378,28 +377,28 @@ if __name__=="__main__":
         #     out1 = l1.calculate(out0)
         #     out2 = l2.calculate(out1)
         #     out3_new = l3.calculate(out2)
-        #     print(out3,out3_new, output)
+        # print(out3,out3_new, output)
         
-        net = NeuralNetwork([7,7,1], 0, .1)
-        net.addConv(2, 3, 1, 5)
-        net.addConv(1, 3, 1, 5)
-        net.addFlattenLayer()
-        net.addFC(1, 1, 5)
+        # net = NeuralNetwork([7,7,1], 0, .1)
+        # net.addConv(2, 3, 1, 5)
+        # net.addConv(1, 3, 1, 5)
+        # net.addFlattenLayer()
+        # net.addFC(1, 1, 5)
         
-        for i in range(100):
-            error,out=net.train(input,output)
-        print(error,out)
+        # for i in range(100):
+        #     error,out=net.train(input,output)
+        # print(error,out)
         
         
         
-        # weights0,b0,weights2,input,output = generateExample1()
+        weights0,b0,weights2,input,output = generateExample1()
         
-        # l0 = ConvolutionalLayer(1,3, 1, input.shape, 10, weights0, b0)
+        # l0 = ConvolutionalLayer(1,3, 1, input.shape, 100, weights0, b0)
         # l1 = FlattenLayer([3,3,1])
-        # l2 = FullyConnected(1,1,10,10,weights2)
+        # l2 = FullyConnected(1,1,10,100,weights2)
         # net = NeuralNetwork(1, 0, .1)
         
-        # for i in range(10):
+        # for i in range(1):
         #     out0 = l0.calculate(input)
         #     out1 = l1.calculate(out0)
         #     out2 = l2.calculate(out1)
@@ -412,16 +411,16 @@ if __name__=="__main__":
         #     out0 = l0.calculate(input)
         #     out1 = l1.calculate(out0)
         #     out2_new = l2.calculate(out1)
-        #     print(out2,out2_new, output)
+        # print(out2,out2_new, output)
         
-        # net = NeuralNetwork([5,5,1], 0, .1, weights0, b0)
-        # net.addConv(1, 3, 1, 5)
-        # net.addFlattenLayer()
-        # net.addFC(1, 1, 5, weights2)
+        net = NeuralNetwork([5,5,1], 0, .1)
+        net.addConv(1, 3, 1, 100, weights0, b0)
+        net.addFlattenLayer()
+        net.addFC(1, 1, 100, weights2)
         
-        # for i in range(100):
-        #     error,out = net.train(input,output)
-        # print(error,out)
+        for i in range(2):
+            error,out = net.train(input,output)
+        print(error,out)
         
         # weights0,b0,weights3,input,output = generateExample3()
 
@@ -456,7 +455,7 @@ if __name__=="__main__":
         # net.addFC(1, 1, 5, weights3)
         # for i in range(100):
         #     error, out = net.train(input,output)
-        #     print(error,out)
+        # print(error,out)
         
         
         
