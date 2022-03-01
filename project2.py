@@ -155,12 +155,15 @@ class ConvolutionalLayer:
         delta = np.zeros((self.numOfKernels,self.inputSize[0],self.inputSize[1],self.inputSize[2]))
         grad_b = np.zeros((self.b.shape))
         height = width = wdelta.shape[0] #self.inputSize[0] - self.kernelSize + 1 # inputSize - kernelSize + 1
+        print(height,width,self.numOfKernels)
+        print(wdelta.shape,'wdelta')
         for i in range(height):
             for j in range(width):
                 for k in range(self.numOfKernels):
                     wdeltaSection = wdelta[i,j,k]
                     section = self.kernels[k]
                     perceptron = section[i,j]
+                    print(wdeltaSection,(i,j,k))
                     grad = perceptron.calcpartialderivative(wdeltaSection)[1]*self.weights[:,:,:,k] # dE/do*do/dn*dn/dw
                     grad = grad.reshape(self.kernelSize,self.kernelSize,self.inputSize[2])
                     grad_b[k] += wdeltaSection*1
@@ -266,16 +269,19 @@ class NeuralNetwork:
         #     self.layer.append(FullyConnected(self.numOfNeurons,self.activation,self.inputSize,self.lr,self.weights[i])) #instantiate layers, changing output layer to 1 neuron for xor gate
     
     def addConv(self,numOfKernels,kernelSize,activation,lr,weights=None, b=None):
-        if weights.all() == None:
-            weights = np.random.rand(kernelSize,kernelSize,inputSize[2],numOfKernels)
-        if b.any() == None:
-            b = np.random.rand((numOfKernels))
+        if np.size(weights) == 1:
+            if weights == None:
+                weights = np.random.rand(kernelSize,kernelSize,self.inputSize[2],numOfKernels)
+        if np.size(b) == 1:
+            if b == None:
+                    b = np.random.rand((numOfKernels))
         self.layer.append(ConvolutionalLayer(numOfKernels, kernelSize, activation, self.inputSize, lr, weights, b))
         self.inputSize = [self.inputSize[0]-kernelSize+1,self.inputSize[0]-kernelSize+1,numOfKernels]
         
     def addFC(self,numOfNeurons, activation, lr, weights=None):
-        if weights.all() == None:
-            weights = np.random.rand(input_num+1)
+        if np.size(weights) == 1:
+            if weights == None:
+                weights = np.random.rand(1,self.inputSize+1)
         input_num = self.inputSize
         self.layer.append(FullyConnected(numOfNeurons, activation, input_num, lr, weights))
         self.inputSize = numOfNeurons
@@ -334,21 +340,21 @@ if __name__=="__main__":
     if(len(sys.argv) < 2):
         print('a good place to test different parts of your codes')
 
-        # l1k1,l1k2,l1b1,l1b2,l2c1,l2c2,l2b,l3,l3b,input, output = generateExample2()
-        # l1k1 = np.expand_dims(l1k1,axis=(2,3))
-        # l1k2 = np.expand_dims(l1k2,axis=(2,3))
-        # weights0 = np.concatenate((l1k1,l1k2),axis=3)
-        # b0 = np.concatenate((l1b1,l1b2),axis=0)
+        l1k1,l1k2,l1b1,l1b2,l2c1,l2c2,l2b,l3,l3b,input, output = generateExample2()
+        l1k1 = np.expand_dims(l1k1,axis=(2,3))
+        l1k2 = np.expand_dims(l1k2,axis=(2,3))
+        weights0 = np.concatenate((l1k1,l1k2),axis=3)
+        b0 = np.concatenate((l1b1,l1b2),axis=0)
         
-        # l2c1 = np.expand_dims(l2c1,axis=(2,3))
-        # l2c2 = np.expand_dims(l2c2,axis=(2,3))
-        # b1 = l2b
-        # weights1 = np.concatenate((l2c1,l2c2),axis=2)
+        l2c1 = np.expand_dims(l2c1,axis=(2,3))
+        l2c2 = np.expand_dims(l2c2,axis=(2,3))
+        b1 = l2b
+        weights1 = np.concatenate((l2c1,l2c2),axis=2)
         
-        # l3b = np.expand_dims((l3b),axis=0)
-        # weights3 = np.concatenate((l3,l3b),axis=1)
+        l3b = np.expand_dims((l3b),axis=0)
+        weights3 = np.concatenate((l3,l3b),axis=1)
 
-        # input = np.expand_dims((input),axis=2)
+        input = np.expand_dims((input),axis=2)
         
         # l0 = ConvolutionalLayer(2, 3, 1, input.shape, 10, weights0, b0)
         # l1 = ConvolutionalLayer(1, 3, 1, [5,5,2], 100, weights1, b1)
@@ -374,6 +380,17 @@ if __name__=="__main__":
         #     out3_new = l3.calculate(out2)
         #     print(out3,out3_new, output)
         
+        net = NeuralNetwork([7,7,1], 0, .1)
+        net.addConv(2, 3, 1, 5)
+        net.addConv(1, 3, 1, 5)
+        net.addFlattenLayer()
+        net.addFC(1, 1, 5)
+        
+        for i in range(100):
+            error,out=net.train(input,output)
+        print(error,out)
+        
+        
         
         # weights0,b0,weights2,input,output = generateExample1()
         
@@ -397,8 +414,16 @@ if __name__=="__main__":
         #     out2_new = l2.calculate(out1)
         #     print(out2,out2_new, output)
         
+        # net = NeuralNetwork([5,5,1], 0, .1, weights0, b0)
+        # net.addConv(1, 3, 1, 5)
+        # net.addFlattenLayer()
+        # net.addFC(1, 1, 5, weights2)
         
-        weights0,b0,weights3,input,output = generateExample3()
+        # for i in range(100):
+        #     error,out = net.train(input,output)
+        # print(error,out)
+        
+        # weights0,b0,weights3,input,output = generateExample3()
 
         # l0 = ConvolutionalLayer(2,3, 1, input.shape, 5, weights0, b0)
         # l1 = MaxPoolingLayer(2, [6,6,2])
