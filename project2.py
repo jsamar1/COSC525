@@ -238,7 +238,7 @@ class MaxPoolingLayer:
         
 class FlattenLayer:
     def __init__(self,inputSize):
-        self.inputSize = inputSize
+        self.inputSize = [int(num) for num in inputSize]
         
     def calculate(self,input):
         self.input = input
@@ -266,34 +266,36 @@ class NeuralNetwork:
         #     self.layer.append(FullyConnected(self.numOfNeurons,self.activation,self.inputSize,self.lr,self.weights[i])) #instantiate layers, changing output layer to 1 neuron for xor gate
     
     def addConv(self,numOfKernels,kernelSize,activation,lr,weights=None, b=None):
-        if len(self.layer) == 0:
-            inputSize == self.inputSize
-        if weights == None:
-            weights = np.random.rand((self.inputSize))
-        if b == None:
+        if weights.all() == None:
+            weights = np.random.rand(kernelSize,kernelSize,inputSize[2],numOfKernels)
+        if b.any() == None:
             b = np.random.rand((numOfKernels))
-        self.layer.append(ConvolutionalLayer(numOfKernels, kernelSize, activation, inputSize, lr, weights=None))
-    
-    def addFC(self,numOfNeurons, activation, input_num, lr, weights=None):
-        if len(self.layer) == 0:
-            input_num == self.inputSize
-        if weights == None:
-            weights = np.random.rand((self.inputSize))
-        self.layer.append(FullyConnected(numOfNeurons, activation, input_num, lr, weights=None))
+        self.layer.append(ConvolutionalLayer(numOfKernels, kernelSize, activation, self.inputSize, lr, weights, b))
+        self.inputSize = [self.inputSize[0]-kernelSize+1,self.inputSize[0]-kernelSize+1,numOfKernels]
+        
+    def addFC(self,numOfNeurons, activation, lr, weights=None):
+        if weights.all() == None:
+            weights = np.random.rand(input_num+1)
+        input_num = self.inputSize
+        self.layer.append(FullyConnected(numOfNeurons, activation, input_num, lr, weights))
+        self.inputSize = numOfNeurons
+        
+    def addMaxPool(self, poolSize):
+        self.layer.append(MaxPoolingLayer(poolSize, self.inputSize))
+        outputSize = [self.inputSize[0]/poolSize,self.inputSize[1]/poolSize,self.inputSize[2]]
+        self.inputSize = outputSize
+        
+    def addFlattenLayer(self):
+        self.layer.append(FlattenLayer(self.inputSize))
+        self.inputSize = self.inputSize[0]*self.inputSize[1]*self.inputSize[2]
         
     #Given an input, calculate the output (using the layers calculate() method)
     def calculate(self,input):
-        outputs = [input]
-        for i in range(self.numOfLayers):
+        for i in range(len(self.layer)):
             layer = self.layer[i]
             value = layer.calculate(input)
             input = value  #sets input to the next layer as the output to the previous layer           
-            input.append(1) #adds the bias node to the input vector
-            if i < self.numOfLayers-1:  #adds the bias node to the output vector for all but the last layer
-                outputs.append(value[:])
-            else:
-                outputs.append(value[:self.numOfNeurons]) #appends the vector without the bias since its the last layer
-        return outputs
+        return value
     
     #Given a predicted output and ground truth output simply return the loss (depending on the loss function)
     def calculateloss(self,yp,y):
@@ -321,12 +323,12 @@ class NeuralNetwork:
         error = self.calculateloss(outputs[-1],y)
         errorderiv = self.lossderiv(outputs[-1],y)
         wtimesdelta = errorderiv    #intializing wtimesdelta for the first calculation
-        for i in range(self.numOfLayers):
-            i = self.numOfLayers - i - 1 #shifts the index so that we move backward through the network
+        for i in range(len(self.layer)):
+            i = len(self.layer) - i - 1 #shifts the index so that we move backward through the network
             layer = self.layer[i]
             wdeltas = layer.calcwdeltas(wtimesdelta)
             wtimesdelta = wdeltas
-        return [error, self.weights]
+        return [error, outputs]
 
 if __name__=="__main__":
     if(len(sys.argv) < 2):
@@ -398,32 +400,38 @@ if __name__=="__main__":
         
         weights0,b0,weights3,input,output = generateExample3()
 
-        l0 = ConvolutionalLayer(2,3, 1, input.shape, 5, weights0, b0)
-        l1 = MaxPoolingLayer(2, [6,6,2])
-        l2 = FlattenLayer([3,3,2])
-        l3 = FullyConnected(1,1,10,5,weights3)
-        net = NeuralNetwork(1, 0, .1)
+        # l0 = ConvolutionalLayer(2,3, 1, input.shape, 5, weights0, b0)
+        # l1 = MaxPoolingLayer(2, [6,6,2])
+        # l2 = FlattenLayer([3,3,2])
+        # l3 = FullyConnected(1,1,10,5,weights3)
+        # net = NeuralNetwork(1, 0, .1)
         
-        for i in range(1):
-            out0 = l0.calculate(input)
-            out1 = l1.calculate(out0)
-            out2 = l2.calculate(out1)
-            out3 = l3.calculate(out2)
+        # for i in range(1):
+        #     out0 = l0.calculate(input)
+        #     out1 = l1.calculate(out0)
+        #     out2 = l2.calculate(out1)
+        #     out3 = l3.calculate(out2)
             
-            wtimesdelta = net.lossderiv(out2, output)
-            d3 = l3.calcwdeltas(wtimesdelta)
-            d2 = l2.calcwdeltas(d3)
-            d1 = l1.calcwdeltas(d2)
-            d0 = l0.calcwdeltas(d1)
+        #     wtimesdelta = net.lossderiv(out2, output)
+        #     d3 = l3.calcwdeltas(wtimesdelta)
+        #     d2 = l2.calcwdeltas(d3)
+        #     d1 = l1.calcwdeltas(d2)
+        #     d0 = l0.calcwdeltas(d1)
             
-            out0 = l0.calculate(input)
-            out1 = l1.calculate(out0)
-            out2 = l2.calculate(out1)
-            out3_new = l3.calculate(out2)
-            print(out3,out3_new, output)
+        #     out0 = l0.calculate(input)
+        #     out1 = l1.calculate(out0)
+        #     out2 = l2.calculate(out1)
+        #     out3_new = l3.calculate(out2)
+        #     print(out3,out3_new, output)
             
-        
-        
+        # net = NeuralNetwork([8,8,1], 0, .1) # Example 3
+        # net.addConv(2,3,1,5,weights0,b0)
+        # net.addMaxPool(2)
+        # net.addFlattenLayer()
+        # net.addFC(1, 1, 5, weights3)
+        # for i in range(100):
+        #     error, out = net.train(input,output)
+        #     print(error,out)
         
         
         
