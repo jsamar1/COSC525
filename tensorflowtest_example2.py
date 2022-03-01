@@ -79,7 +79,7 @@ elif(sys.argv[1] == '2'):
     
     
     #print needed values.
-    np.set_printoptions(precision=5)
+    np.set_printoptions(precision=10)
     print('model output before:')
     print(model.predict(img))
     sgd = optimizers.SGD(lr=100)
@@ -102,6 +102,7 @@ elif(sys.argv[1] == '2'):
     print('2nd convolutional layer weights:')
     print(np.squeeze(model.get_weights()[2][:,:,0,0]))
     print(np.squeeze(model.get_weights()[2][:,:,1,0]))
+    test2 = np.squeeze(model.get_weights()[2][:,:,:,0]).reshape(3,3,2)
     print('2nd convolutional layer bias:')
     print(np.squeeze(model.get_weights()[3]))
     
