@@ -17,11 +17,15 @@ EPOCHS_VALUE = 1000
 # A class which represents a single neuron
 class Neuron:
     #initilize neuron with activation type, number of inputs, learning rate, and possibly with set weights
-    def __init__(self,activation, input_num, lr, weights=None):
+    def __init__(self,activation, input_num, lr, weights, b=None):
         self.activation = activation
         self.input_num = input_num
         self.lr = lr
         self.weights = weights.flatten()
+        if b != None:
+            self.b = b
+        else:
+            self.b = 0 #placeholder value to return for FC layers where b is included in self.weights
         
     #This method returns the activation of the net
     def activate(self,net):
@@ -38,9 +42,7 @@ class Neuron:
     #Calculate the output of the neuron should save the input and output for back-propagation.   
     def calculate(self,input):
         self.input = input
-        self.output = self.weights.dot(input)        #calculate w*x
-        #self.output = self.activate(output)     #activate and store output in neuron
-        
+        self.output = self.weights.dot(input) + self.b       #calculate w*x+b
         return self.output
 
     #This method returns the derivative of the activation function with respect to the net   
@@ -54,13 +56,16 @@ class Neuron:
     #This method calculates the partial derivative for each weight and returns the delta*w to be used in the previous layer
     def calcpartialderivative(self, wtimesdelta):
         self.delta = wtimesdelta*self.activationderivative()*np.array(self.input) #dE/do*do/dn*dn/dw = dE/dw
-        test = wtimesdelta*self.activationderivative() #dE/do*do/dn = dE/dn
-        return self.delta, test  #saves delta in neuron to use in updateweight()
+        self.deltaB = wtimesdelta*self.activationderivative()*1 #dE/do*do/dn*dn/db
+        grad = wtimesdelta*self.activationderivative() #dE/do*do/dn = dE/dn
+        return grad  #saves delta in neuron to use in updateweight()
     
     #Simply update the weights using the partial derivatives and the leranring weight
     def updateweight(self):
         self.weights = self.weights - self.lr*self.delta
-        return self.weights
+        if self.b != 0: 
+            self.b = self.b - self.lr*self.deltaB
+        return self.weights,self.deltaB
 
 #A fully connected layer        
 class FullyConnected:
@@ -90,9 +95,9 @@ class FullyConnected:
         delta = 0
         for i in range(self.numOfNeurons):
             perceptron = self.perceptron[i]
-            grad = perceptron.calcpartialderivative(wtimesdelta[i])[1]*self.weights[i,:] #dE/dn*dn/h = dE/dh
+            grad = perceptron.calcpartialderivative(wtimesdelta[i])*self.weights[i,:] #dE/dn*dn/h = dE/dh
             delta += grad #sums the gradients for each weight from each neuron 
-            self.weights[i,:] = perceptron.updateweight()
+            self.weights[i,:] = perceptron.updateweight()[0]
         return delta
  
 class ConvolutionalLayer:
@@ -107,7 +112,7 @@ class ConvolutionalLayer:
         self.numOfNeurons = ((inputSize[0]-kernelSize+1)**2)
         self.kernels = [] #each sublist holds the neurons of a kernel
         for i in range(numOfKernels):
-            self.perceptron = [Neuron(self.activation,self.inputSize,self.lr,self.weights[:,:,:,i]) for j in range(self.numOfNeurons)]
+            self.perceptron = [Neuron(self.activation,self.inputSize,self.lr,self.weights[:,:,:,i],self.b[i]) for j in range(self.numOfNeurons)]
             self.perceptron = np.array(self.perceptron).reshape((inputSize[0]-kernelSize+1),(inputSize[0]-kernelSize+1)) # reshape perceptrons into grid corresponding to window
             self.kernels.append(self.perceptron)
             
@@ -123,7 +128,7 @@ class ConvolutionalLayer:
                     section = self.kernels[k] # gets perceptron in kernel
                     perceptron = section[i,j] # gets perceptron
                     x = window[i,j,:]         # gets values in window for perceptorn
-                    value = perceptron.calculate(x) + self.b[k] # w*X + b
+                    value = perceptron.calculate(x)# w*X + b
                     value = perceptron.activate(value)
                     outputs[i,j,k] = value
         return outputs
@@ -138,12 +143,13 @@ class ConvolutionalLayer:
                     wdeltaSection = wdelta[i,j,k] # gets wdelta for each perceptron
                     section = self.kernels[k]     # gets perceptrons in kernel
                     perceptron = section[i,j]     # gets perceptron
-                    grad = perceptron.calcpartialderivative(wdeltaSection)[1]*self.weights[:,:,:,k] # dE/dn*dn/dh = dE/dh
+                    perceptron.weights = self.weights[:,:,:,k].flatten()
+                    grad = perceptron.calcpartialderivative(wdeltaSection)*self.weights[:,:,:,k] # dE/dn*dn/dh = dE/dh
                     grad = grad.reshape(self.kernelSize,self.kernelSize,self.inputSize[2]) # reshape into window view
                     grad_b[k] += wdeltaSection*1 # gradient of bias is always wdelta
                     delta[i:i+self.kernelSize,j:j+self.kernelSize,:, k] += grad #add dE/dh to delta to give proper summation
-                    self.weights[:,:,:,k] = perceptron.updateweight().reshape(self.weights[:,:,:,k].shape) # reshapes weights and store them in layer
-                    self.b[k] = self.b[k] - self.lr*grad_b[k] 
+                    weights,self.b[k] = perceptron.updateweight() 
+                    self.weights[:,:,:,k] = weights.reshape(self.weights[:,:,:,k].shape) # reshapes weights and store them in layer
         return delta
         
 class MaxPoolingLayer:
@@ -257,7 +263,6 @@ class NeuralNetwork:
     #Given a single input and desired output preform one step of backpropagation (including a forward pass, getting the derivative of the loss, and then calling calcwdeltas for layers with the right values         
     def train(self,x,y):
         output = self.calculate(x)
-
         error = self.calculateloss(output,y)
         errorderiv = self.lossderiv(output,y)
         wtimesdelta = errorderiv    #intializing wtimesdelta for the first calculation
@@ -265,8 +270,8 @@ class NeuralNetwork:
             i = len(self.layer) - i - 1 #shifts the index so that we move backward through the network
             layer = self.layer[i]
             wtimesdelta = layer.calcwdeltas(wtimesdelta)
-        error = self.calculateloss(output,y)
         output = self.calculate(x)
+        error = self.calculateloss(output,y)
         return [error, output]
 
 if __name__=="__main__":
@@ -276,11 +281,11 @@ if __name__=="__main__":
         # weights0,b0,weights2,input,output = generateExample1()
         
         # net = NeuralNetwork([5,5,1], 0, .1)
-        # net.addConv(1, 3, 1, 100, weights0, b0)
+        # net.addConv(1, 3, 1, 1, weights0, b0)
         # net.addFlattenLayer()
-        # net.addFC(1, 1, 100, weights2)
+        # net.addFC(1, 1, 1, weights2)
         
-        # for i in range(20):
+        # for i in range(100):
         #     error,out = net.train(input,output)
         # print(error,out, output)
         
@@ -298,18 +303,18 @@ if __name__=="__main__":
         # weights3 = np.concatenate((l3,l3b),axis=1)
         # input = np.expand_dims((input),axis=2)
         
-        # net = NeuralNetwork([7,7,1], 0, .1)
-        # net.addConv(2, 3, 1, .1, weights0, b0)
-        # net.addConv(1, 3, 1, 10, weights1, b1)
+        # net = NeuralNetwork([7,7,1], 0, 100)
+        # net.addConv(2, 3, 1, 100, weights0, b0)
+        # net.addConv(1, 3, 1, 100, weights1, b1)
         # net.addFlattenLayer()
-        # net.addFC(1, 1, 1, weights3)
+        # net.addFC(1, 1, 100, weights3)
         
         # print(net.calculate(input))
         # for i in range(1):
         #     error,out=net.train(input,output)
         # print(error,out)
-
-        
+        # test1 = net.layer[1].weights[:,:,:,0]
+        # test1_b = net.layer[1].b
         
         
         # weights0,b0,weights3,input,output = generateExample3()
