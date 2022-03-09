@@ -278,6 +278,7 @@ if __name__=="__main__":
     if(len(sys.argv) < 2):
         print('a good place to test different parts of your codes')
         
+        # print('\nExample 1')
         # weights0,b0,weights2,input,output = generateExample1()
         
         # net = NeuralNetwork([5,5,1], 0, .1)
@@ -288,8 +289,13 @@ if __name__=="__main__":
         # for i in range(100):
         #     error,out = net.train(input,output)
         # print(error,out, output)
+        # print(f'model output after:\n{output}')
+        # print(f'1st convolution layer, 1st kernel weights:\n{weights0}')
+        # print(f'1st convolution layer, 1st kernel bias:\n{b0}')
+        # print(f'Fully Connected layer weights:\n{weights2}')
+        # print(f'Fully Connected layer bias:\n{error}')
         
-        
+        # print('\nExample 2')
         # l1k1,l1k2,l1b1,l1b2,l2c1,l2c2,l2b,l3,l3b,input, output = generateExample2()
         # l1k1 = np.expand_dims(l1k1,axis=(2,3))
         # l1k2 = np.expand_dims(l1k2,axis=(2,3))
@@ -315,8 +321,17 @@ if __name__=="__main__":
         # print(error,out)
         # test1 = net.layer[1].weights[:,:,:,0]
         # test1_b = net.layer[1].b
+        # print(f'model output after:\n{out}') #right
+        # print(f'\n1st convolution layer, 1st kernel weights:\n{l1k1[:,:,0,0]}') # first col
+        # print(f'\n1st convolution layer, 1st kernel bias:\n{b0[0]}') # both really off
+        # print(f'\n1st convolution layer, 2nd kernel weights:\n{l1k2[:,:,0,0]}') # 
+        # print(f'\n1st convolution layer, 2nd kernel bias:\n{b1[0]}')
+        # print(f'\n2nd convolution layer weights:\n{l2c1[:,:,0,0]}\n{l2c2[:,:,0,0]}')#{weights2}') #
+        # print(f'\n2nd convolution layer bias:\n{l3b[0,0]}')
+        # print(f'\nFully Connected layer weights:\n{weights3[0,:-1]}')
+        # print(f'\nFully Connected layer bias:\n{error}')
         
-        
+        # print('\nExample 3')
         # weights0,b0,weights3,input,output = generateExample3()
             
         # net = NeuralNetwork([8,8,1], 0, 0.1) # Example 3, incredibly sensitive to LR and weight initializiation.
