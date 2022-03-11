@@ -67,6 +67,9 @@ class Neuron:
             self.b = self.b - self.lr*self.deltaB
         return self.weights,self.deltaB
 
+    def get_bias(self):
+        return self.b
+
 #A fully connected layer        
 class FullyConnected:
     #initialize with the number of neurons in the layer, their activation,the input size, the leraning rate and a 2d matrix of weights (or else initilize randomly)
@@ -99,6 +102,12 @@ class FullyConnected:
             delta += grad #sums the gradients for each weight from each neuron 
             self.weights[i,:] = perceptron.updateweight()[0]
         return delta
+
+    def get_weights(self):
+        return self.weights
+
+    def get_bias(self, index=None):
+        return self.perceptron[0].get_bias()
  
 class ConvolutionalLayer:
     def __init__(self,numOfKernels, kernelSize, activation, inputSize, lr, weights=None,b=None):
@@ -151,7 +160,13 @@ class ConvolutionalLayer:
                     weights,self.b[k] = perceptron.updateweight() 
                     self.weights[:,:,:,k] = weights.reshape(self.weights[:,:,:,k].shape) # reshapes weights and store them in layer
         return delta
+
+    def get_weights(self):
+        return self.weights
         
+    def get_bias(self, kernelIndex=0):
+        return self.kernels[kernelIndex][0][0].get_bias()
+
 class MaxPoolingLayer:
     def __init__(self, poolSize, inputSize):
         self.poolSize = poolSize
@@ -274,74 +289,141 @@ class NeuralNetwork:
         error = self.calculateloss(output,y)
         return [error, output]
 
+    def get_weights(self):
+        weights = [0]*len(self.layer)
+        for i,layer in enumerate(self.layer):
+            if(isinstance(layer, ConvolutionalLayer) or isinstance(layer, FullyConnected)):
+                weights[i] = layer.get_weights()
+        return np.array(weights, dtype=object)
+    
+    def get_bias(self, layerIndex, kernelIndex=0):
+        return self.layer[layerIndex].get_bias(kernelIndex)
+
 if __name__=="__main__":
     if(len(sys.argv) < 2):
         print('a good place to test different parts of your codes')
         
-        # print('\nExample 1')
-        # weights0,b0,weights2,input,output = generateExample1()
+        print('\nExample 1')
+        weights0,b0,weights2,input,output = generateExample1()
+        input = np.expand_dims((input),axis=2)
+        # weights2 = weights2.reshape(10,1)
+        # b2 = weights2[-1]
+        # weights2 = weights2[:-1]
+
+        net = NeuralNetwork([5,5,1], 0, 100)
+        net.addConv(1, 3, 1, 100, weights0, b0)
+        net.addFlattenLayer()
+        net.addFC(1, 1, 1, weights2)
+
+        outBefore = net.calculate(input)
+        error,out = net.train(input,output)
+        outAfter = net.calculate(input)
+
+        print(f'model output before:\n{outBefore}')
+        print(f'\nmodel output after:\n{outAfter}')
+        t = net.get_weights()
+        print(f'\n1st convolution layer, 1st kernel weights:')
+        print(f'{t[0][0,:,:,0][:,0]}')
+        print(f'{t[0][1,:,:,0][:,0]}')
+        print(f'{t[0][2,:,:,0][:,0]}')
+        print(f'\n1st convolution layer, 1st kernel bias:\n{net.get_bias(0,0)}')
+        print(f'\nFully Connected layer weights:')
+        print(f'{t[2][0][:9]}')
+        print(f'\nFully Connected layer bias:')
+        print(f'{t[2][0][-1]}')
         
-        # net = NeuralNetwork([5,5,1], 0, .1)
-        # net.addConv(1, 3, 1, 1, weights0, b0)
-        # net.addFlattenLayer()
-        # net.addFC(1, 1, 1, weights2)
+        print('\nExample 2')
+        l1k1,l1k2,l1b1,l1b2,l2c1,l2c2,l2b,l3,l3b,input, output = generateExample2()
+        l1k1 = np.expand_dims(l1k1,axis=(2,3))
+        l1k2 = np.expand_dims(l1k2,axis=(2,3))
+        weights0 = np.concatenate((l1k1,l1k2),axis=3)
+        b0 = np.concatenate((l1b1,l1b2),axis=0)
+        l2c1 = np.expand_dims(l2c1,axis=(2,3))
+        l2c2 = np.expand_dims(l2c2,axis=(2,3))
+        b1 = l2b
+        weights1 = np.concatenate((l2c1,l2c2),axis=2)
+        l3b = np.expand_dims((l3b),axis=0)
+        weights3 = np.concatenate((l3,l3b),axis=1)
+        input = np.expand_dims((input),axis=2)
         
-        # for i in range(100):
-        #     error,out = net.train(input,output)
-        # print(error,out, output)
-        # print(f'model output after:\n{output}')
-        # print(f'1st convolution layer, 1st kernel weights:\n{weights0}')
-        # print(f'1st convolution layer, 1st kernel bias:\n{b0}')
-        # print(f'Fully Connected layer weights:\n{weights2}')
-        # print(f'Fully Connected layer bias:\n{error}')
+        net = NeuralNetwork([7,7,1], 0, 100)
+        net.addConv(2, 3, 1, 100, weights0, b0)
+        net.addConv(1, 3, 1, 100, weights1, b1)
+        net.addFlattenLayer()
+        net.addFC(1, 1, 100, weights3)
+
+        outBefore = net.calculate(input)
+        error,out = net.train(input,output)
+        outAfter = net.calculate(input)
+
+        print(f'model output before:\n{outBefore}')
+        print(f'model output after:\n{outAfter}')
+
+        t = net.get_weights()
+        print(f'\n1st convolution layer, 1st kernel weights:')
+        print(f'{t[0][0,:,:,0][:,0]}')
+        print(f'{t[0][1,:,:,0][:,0]}')
+        print(f'{t[0][2,:,:,0][:,0]}')
+        print(f'\n1st convolution layer, 1st kernel bias:\n{net.get_bias(0,0)}')
+        print(f'\n1st convolution layer, 2nd kernel weights:') 
+
+        print(f'{t[0][0,:,:,1][:,0]}')
+        print(f'{t[0][1,:,:,1][:,0]}')
+        print(f'{t[0][2,:,:,1][:,0]}')
+        print(f'\n1st convolution layer, 2nd kernel bias:\n{net.get_bias(0,1)}')
+        print(f'\n2nd convolution layer weights:')
+        print(f'{t[1][0,:,:,0][:,0]}')
+        print(f'{t[1][1,:,:,0][:,0]}')
+        print(f'{t[1][2,:,:,0][:,0]}')
+        print(f'{t[1][0,:,:,0][:,1]}')
+        print(f'{t[1][1,:,:,0][:,1]}')
+        print(f'{t[1][2,:,:,0][:,1]}')
+        print(f'\n2nd convolution layer bias:\n{net.get_bias(1,0)}')
+        print(f'\nFully Connected layer weights:')
+        print(f'{t[3][0][:9]}')
+        print(f'\nFully Connected layer bias:')
+        print(f'{t[3][0][-1]}')
+
+        print('\nExample 3')
+        l1k1,l1k2,l1b1,l1b2,l3,l3b,input,output = generateExample3()
         
-        # print('\nExample 2')
-        # l1k1,l1k2,l1b1,l1b2,l2c1,l2c2,l2b,l3,l3b,input, output = generateExample2()
-        # l1k1 = np.expand_dims(l1k1,axis=(2,3))
-        # l1k2 = np.expand_dims(l1k2,axis=(2,3))
-        # weights0 = np.concatenate((l1k1,l1k2),axis=3)
-        # b0 = np.concatenate((l1b1,l1b2),axis=0)
-        # l2c1 = np.expand_dims(l2c1,axis=(2,3))
-        # l2c2 = np.expand_dims(l2c2,axis=(2,3))
-        # b1 = l2b
-        # weights1 = np.concatenate((l2c1,l2c2),axis=2)
-        # l3b = np.expand_dims((l3b),axis=0)
-        # weights3 = np.concatenate((l3,l3b),axis=1)
-        # input = np.expand_dims((input),axis=2)
+        l1k1 = np.expand_dims(l1k1,axis=(2,3))
+        l1k2 = np.expand_dims(l1k2,axis=(2,3))
+        weights0 = np.concatenate((l1k1,l1k2),axis=3)
+        b0 = np.concatenate((l1b1,l1b2),axis=0)
+        input = np.expand_dims((input),axis=2)
+        l3b = np.expand_dims((l3b),axis=0)
+        weights3 = np.concatenate((l3,l3b),axis=1)
         
-        # net = NeuralNetwork([7,7,1], 0, 100)
-        # net.addConv(2, 3, 1, 100, weights0, b0)
-        # net.addConv(1, 3, 1, 100, weights1, b1)
-        # net.addFlattenLayer()
-        # net.addFC(1, 1, 100, weights3)
-        
-        # print(net.calculate(input))
-        # for i in range(1):
-        #     error,out=net.train(input,output)
-        # print(error,out)
-        # test1 = net.layer[1].weights[:,:,:,0]
-        # test1_b = net.layer[1].b
-        # print(f'model output after:\n{out}') #right
-        # print(f'\n1st convolution layer, 1st kernel weights:\n{l1k1[:,:,0,0]}') # first col
-        # print(f'\n1st convolution layer, 1st kernel bias:\n{b0[0]}') # both really off
-        # print(f'\n1st convolution layer, 2nd kernel weights:\n{l1k2[:,:,0,0]}') # 
-        # print(f'\n1st convolution layer, 2nd kernel bias:\n{b1[0]}')
-        # print(f'\n2nd convolution layer weights:\n{l2c1[:,:,0,0]}\n{l2c2[:,:,0,0]}')#{weights2}') #
-        # print(f'\n2nd convolution layer bias:\n{l3b[0,0]}')
-        # print(f'\nFully Connected layer weights:\n{weights3[0,:-1]}')
-        # print(f'\nFully Connected layer bias:\n{error}')
-        
-        # print('\nExample 3')
-        # weights0,b0,weights3,input,output = generateExample3()
-            
-        # net = NeuralNetwork([8,8,1], 0, 0.1) # Example 3, incredibly sensitive to LR and weight initializiation.
-        # net.addConv(2,3,1,.5)
-        # net.addMaxPool(2)
-        # net.addFlattenLayer()
-        # net.addFC(1, 1, .5, weights3)
-        # for i in range(500):
-        #     error, out = net.train(input,output)
-        # print(error,out,output)
+        net = NeuralNetwork([8,8,1], 0, 100) # Example 3, incredibly sensitive to LR and weight initializiation.
+        net.addConv(2,3,1,100, weights0, b0)
+        net.addMaxPool(2)
+        net.addFlattenLayer()
+        net.addFC(1, 1, 100, weights3)
+
+        outBefore = net.calculate(input)
+        error,out = net.train(input,output)
+        outAfter = net.calculate(input)
+
+        print(f'model output before:\n{outBefore}')
+        print(f'\nmodel output after:\n{outAfter}')
+
+
+        t = net.get_weights()
+        print(f'\n1st convolution layer, 1st kernel weights:')
+        print(f'{t[0][0,:,:,0][:,0]}')
+        print(f'{t[0][1,:,:,0][:,0]}')
+        print(f'{t[0][2,:,:,0][:,0]}')
+        print(f'\n1st convolution layer, 1st kernel bias:\n{net.get_bias(0,0)}')
+        print(f'\n1st convolution layer, 2nd kernel weights:') 
+        print(f'{t[0][0,:,:,1][:,0]}')
+        print(f'{t[0][1,:,:,1][:,0]}')
+        print(f'{t[0][2,:,:,1][:,0]}')
+        print(f'\n1st convolution layer, 2nd kernel bias:\n{net.get_bias(0,1)}')
+        print(f'\nFully Connected layer weights:')
+        print(f'{t[3][0][:9]}')
+        print(f'\nFully Connected layer bias:')
+        print(f'{t[3][0][-1]}')
         
     elif(sys.argv[2] == 'graphs'):
         learningRates = [.00001, .0001, .001, .01, .05, .1, .2, .3]
