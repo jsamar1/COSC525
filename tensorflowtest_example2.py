@@ -28,7 +28,7 @@ if(sys.argv[1] == '1'):
     np.set_printoptions(precision=5)
     print('model output before:')
     print(model.predict(img))
-    sgd = optimizers.SGD(lr=100)
+    sgd = optimizers.SGD(lr=.1)
     model.compile(loss='MSE', optimizer=sgd, metrics=['accuracy'])
     history=model.fit(img,output,batch_size=1,epochs=1)
     print('model output after:')

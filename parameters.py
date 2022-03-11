@@ -33,7 +33,7 @@ def generateExample1():
     b0 = np.random.rand(1)
     weights2 = np.random.rand(1,10)
     
-    input = np.random.rand(5,5)
+    input = np.random.rand(5,5,1)
     output = np.random.rand(1)
     
     return weights0,b0,weights2,input,output

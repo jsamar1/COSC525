@@ -305,13 +305,9 @@ if __name__=="__main__":
         
         print('\nExample 1')
         weights0,b0,weights2,input,output = generateExample1()
-        input = np.expand_dims((input),axis=2)
-        # weights2 = weights2.reshape(10,1)
-        # b2 = weights2[-1]
-        # weights2 = weights2[:-1]
 
-        net = NeuralNetwork([5,5,1], 0, 100)
-        net.addConv(1, 3, 1, 100, weights0, b0)
+        net = NeuralNetwork([5,5,1], 0, .1)
+        net.addConv(1, 3, 1, .1, weights0, b0)
         net.addFlattenLayer()
         net.addFC(1, 1, 1, weights2)
 
