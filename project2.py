@@ -417,7 +417,7 @@ if __name__=="__main__":
         print(f'{t[0][2,:,:,1][:,0]}')
         print(f'\n1st convolution layer, 2nd kernel bias:\n{net.get_bias(0,1)}')
         print(f'\nFully Connected layer weights:')
-        print(f'{t[3][0][:9]}')
+        print(f'{t[3][0][:18]}')
         print(f'\nFully Connected layer bias:')
         print(f'{t[3][0][-1]}')
         
