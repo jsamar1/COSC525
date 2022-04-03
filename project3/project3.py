@@ -40,6 +40,7 @@ def FullyConnected(task, lr,num_epochs=10):
     dataset_train = dataset_train.batch(16)
     dataset_test = tf.data.Dataset.from_tensor_slices((images_test,race_test))
     dataset_test = dataset_test.batch(16)
+    #y_train, y_test = race_train, race_test
   elif task=='age':
     n=9
     loss = 'categorical_crossentropy'
@@ -48,6 +49,7 @@ def FullyConnected(task, lr,num_epochs=10):
     dataset_train = dataset_train.batch(16)
     dataset_test = tf.data.Dataset.from_tensor_slices((images_test,age_test))
     dataset_test = dataset_test.batch(16)
+    #y_train, y_test = age_train, age_test
   elif task=='gender':
     n=1
     loss = 'binary_crossentropy'
@@ -56,6 +58,7 @@ def FullyConnected(task, lr,num_epochs=10):
     dataset_train = dataset_train.batch(16)
     dataset_test = tf.data.Dataset.from_tensor_slices((images_test,gender_test))
     dataset_test = dataset_test.batch(16)
+    #y_train, y_test = gender_train, gender_test
   Model = tf.keras.Sequential()
   Model.add(tf.keras.layers.Flatten(input_shape=(32,32, 1)))
   Model.add(tf.keras.layers.Dense(1024, activation='tanh'))
@@ -67,7 +70,7 @@ def FullyConnected(task, lr,num_epochs=10):
                 metrics=['accuracy'])
   
   history = Model.fit(dataset_train,validation_data=dataset_test, epochs=num_epochs)
-  
+  #history = Model.fit(x=images_train, y=y_train, validation_data=(images_test,y_test), batch_size=16, epochs=num_epochs)
   return history
 
 def Convolutional(task, lr, num_epochs=10):
@@ -183,25 +186,29 @@ def task(num):
         history_gender = Convolutional('gender', 0.001, num_epochs=20)
     elif num==3:
         print(f'Training on Race:\n')
-        history_race = Convolutional2('race', 0.001, num_epochs=40)
+        history_race = Convolutional2('race', 0.001, num_epochs=20)
         print(f'\nTraining on Age:\n')
-        history_age = Convolutional2('age', 0.001, num_epochs=40)
+        history_age = Convolutional2('age', 0.001, num_epochs=20)
         print(f'\nTraining on Gender:\n')
-        history_gender = Convolutional2('gender', 0.001, num_epochs=40)
+        history_gender = Convolutional2('gender', 0.001, num_epochs=20)
     #elif num==4:
     
     return history_race, history_age, history_gender
         
 file_train, file_test, age_train, age_test, gender_train, gender_test, race_train, race_test = getLabels() # separates processed labels from csv
+# Image folders must be stored in another folder in the root directory with project3.py for... some reason.
+# I create train_imgs & val_imgs that hold their respective image folders
 data_dir_train = r"C:\Unreal Engine\Projects\COSC525\FromHub\project3\train_imgs\\"
 data_dir_test = r"C:\Unreal Engine\Projects\COSC525\FromHub\project3\val_imgs\\"
 
 images_train = load_image(file_train, data_dir_train) # get image tensors corresponding to labels
 images_test = load_image(file_test, data_dir_test)
 
-# FC_race, FC_age, FC_gender = task(1)
+
+# Training, returns accuracy/loss for training/validation
+FC_race, FC_age, FC_gender = task(1)
 # Conv_race, Conv_age, Conv_gender = task(2)
-Conv2_race, Conv2_age, Conv2_gender = task(3)
+# Conv2_race, Conv2_age, Conv2_gender = task(3)
   
 def graph(history_race,history_age,history_gender, model):
     plt.plot(history_race.history['accuracy'])
@@ -249,7 +256,7 @@ def graph(history_race,history_age,history_gender, model):
   
 # graph(FC_race,FC_age,FC_gender,'FC')
 # graph(Conv_race,Conv_age,Conv_gender,'Conv')
-graph(Conv2_race,Conv2_age,Conv2_gender,'Conv2')
+# graph(Conv2_race,Conv2_age,Conv2_gender,'Conv2')
   
   
   
