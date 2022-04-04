@@ -140,14 +140,20 @@ def Convolutional2(task, lr, num_epochs=10):
     dataset_test = dataset_test.batch(16)
 
   conv2Model = tf.keras.Sequential()
+  conv2Model.add(tf.keras.layers.BatchNormalization())
   conv2Model.add(tf.keras.layers.Conv2D(16,3,activation='ReLU'))
+  conv2Model.add(tf.keras.layers.BatchNormalization())
   conv2Model.add(tf.keras.layers.Conv2D(32,3,activation='ReLU'))
+  conv2Model.add(tf.keras.layers.BatchNormalization())
   conv2Model.add(tf.keras.layers.MaxPool2D())
   conv2Model.add(tf.keras.layers.Conv2D(64,3,activation='ReLU'))
+  conv2Model.add(tf.keras.layers.BatchNormalization())
   conv2Model.add(tf.keras.layers.Conv2D(128,3,activation='ReLU'))
+  conv2Model.add(tf.keras.layers.BatchNormalization())
   conv2Model.add(tf.keras.layers.MaxPool2D())
   conv2Model.add(tf.keras.layers.Flatten())
   conv2Model.add(tf.keras.layers.Dense(100,activation='ReLU'))
+  conv2Model.add(tf.keras.layers.BatchNormalization())
   conv2Model.add(tf.keras.layers.Dense(n,activation=activation))
   conv2Model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=lr),
                 loss=loss,
@@ -158,7 +164,7 @@ def Convolutional2(task, lr, num_epochs=10):
   return history
 
 def getLabels():
-    num = 2000
+    num = -1
     train_labels = pd.read_csv('fairface_label_train.csv')
     file_train, age_train, gender_train, race_train = train_labels.iloc[:num,0].tolist(), train_labels.iloc[:num,1].to_numpy().reshape(-1,1), train_labels.iloc[:num,2].to_numpy(), train_labels.iloc[:num,3].to_numpy().reshape(-1,1)
     test_labels= pd.read_csv('fairface_label_val.csv')
@@ -206,9 +212,9 @@ images_test = load_image(file_test, data_dir_test)
 
 
 # Training, returns accuracy/loss for training/validation
-FC_race, FC_age, FC_gender = task(1)
+# FC_race, FC_age, FC_gender = task(1)
 # Conv_race, Conv_age, Conv_gender = task(2)
-# Conv2_race, Conv2_age, Conv2_gender = task(3)
+Conv2_race, Conv2_age, Conv2_gender = task(3)
   
 def graph(history_race,history_age,history_gender, model):
     plt.plot(history_race.history['accuracy'])
