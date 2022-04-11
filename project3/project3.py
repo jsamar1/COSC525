@@ -15,6 +15,7 @@ from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 
+# tf.compat.v1.disable_eager_execution()
 
 def load_image(filename, data_dir):
     images = tf.zeros((1,32,32,1), dtype='uint8')
@@ -57,7 +58,6 @@ def FullyConnected(task, lr,num_epochs=10):
   Model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=lr),
                 loss=loss,
                 metrics=['accuracy'])
-  
   history = Model.fit(x=images_train, y=y_train, validation_data=(images_test,y_test), batch_size=batch_size, epochs=num_epochs)
   return history
 
@@ -87,8 +87,8 @@ def Convolutional(task, lr, num_epochs=10):
   convModel.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=lr),
                 loss=loss,
                 metrics=['accuracy'])
-  
   history = convModel.fit(x=images_train, y=y_train, validation_data=(images_test,y_test), batch_size=batch_size, epochs=num_epochs)
+  convModel.summary()
   
   return history
 
@@ -133,6 +133,27 @@ def Convolutional2(task, lr, num_epochs=10):
   
   return history
 
+def branchConvolution(lr, num_epochs=10):
+  input = tf.keras.Input(shape=(32,32,1), name='image')
+  x = tf.keras.layers.Conv2D(40, 5, activation='ReLU')(input)
+  x = tf.keras.layers.MaxPool2D()(x)
+  x = tf.keras.layers.Flatten()(x)
+  y = tf.keras.layers.Dense(100, activation='ReLU')(x)
+  z = tf.keras.layers.Dense(100, activation='ReLU')(x)
+  branchRace = tf.keras.layers.Dense(7, activation='ReLU')(y)
+  branchAge = tf.keras.layers.Dense(9, activation='ReLU')(z)
+  model = tf.keras.Model(inputs=input, outputs=[branchRace, branchAge], name="BranchNN")
+
+  model.compile(
+    optimizer=tf.keras.optimizers.SGD(learning_rate=lr),
+    loss='categorical_crossentropy',
+    metrics=['accuracy']
+  )
+  model.summary()
+  history = model.fit(x=images_train, y=[race_train, age_train], validation_data=(images_test,[race_test, age_test]), batch_size=batch_size, epochs=num_epochs)
+
+  return history
+
 def getLabels(num=5000):
     train_labels = pd.read_csv('fairface_label_train.csv')
     file_train, age_train, gender_train, race_train = train_labels.iloc[:num,0].tolist(), train_labels.iloc[:num,1].to_numpy().reshape(-1,1), train_labels.iloc[:num,2].to_numpy(), train_labels.iloc[:num,3].to_numpy().reshape(-1,1)
@@ -161,12 +182,20 @@ def task(num,lr=0.001,num_epochs=10):
         history_gender = Convolutional('gender', lr, num_epochs=num_epochs)
     elif num==3:
         print(f'Training on Race:\n')
-        history_race = Convolutional2('race', lr, num_epochs=num_epochs)
+        history_race = branchConvolution('race', lr, num_epochs=num_epochs)
         print(f'\nTraining on Age:\n')
         history_age = Convolutional2('age', lr, num_epochs=num_epochs)
         print(f'\nTraining on Gender:\n')
         history_gender = Convolutional2('gender', lr, num_epochs=num_epochs)
-    #elif num==4:
+    elif num==4:
+      print(f'Training on Race and Age:\n')
+      history_race = branchConvolution(lr, num_epochs=num_epochs)
+      return history_race
+    elif num==5:
+      latent_dim = 5
+
+
+      pass
     
     return history_race, history_age, history_gender
         
@@ -174,6 +203,8 @@ def task(num,lr=0.001,num_epochs=10):
 # I create train_imgs & val_imgs that hold their respective image folders
 data_dir_train = r"C:\Unreal Engine\Projects\COSC525\FromHub\project3\train_imgs\\"
 data_dir_test = r"C:\Unreal Engine\Projects\COSC525\FromHub\project3\val_imgs\\"
+# data_dir_train = r"C:\Users\jsamar1\Downloads\project3_COSC525\\"
+# data_dir_test = r"C:\Users\jsamar1\Downloads\project3_COSC525\\"
 
 file_train, file_test, age_train, age_test, gender_train, gender_test, race_train, race_test = getLabels(200) # separates processed labels from csv
 images_train = load_image(file_train, data_dir_train) # get image tensors corresponding to labels
@@ -182,19 +213,35 @@ images_test = load_image(file_test, data_dir_test)
 
 # Training, returns accuracy/loss for training/validation
 batch_size = 128
-lr = 0.01
-num_epochs = 2
-FC_race, FC_age, FC_gender = task(1, lr, num_epochs)
-Conv_race, Conv_age, Conv_gender = task(2, lr, num_epochs)
-Conv2_race, Conv2_age, Conv2_gender = task(3, lr, num_epochs)
-  
+lr = 0.05
+num_epochs = 500
+# FC_race, FC_age, FC_gender = task(1, lr, num_epochs)
+# Conv_race, Conv_age, Conv_gender = task(2, lr, num_epochs)
+# Conv2_race, Conv2_age, Conv2_gender = task(3, lr, num_epochs)
+branch_race_and_age = task(4, lr, num_epochs)
+
+def graph4(history_race, model):
+  for key in history_race.history.keys():
+    if('val' in key): continue
+
+    plt.plot(history_race.history[key], label=key)
+    plt.plot(history_race.history['val_' + key], label='val_' + key)
+    plt.title('Race and Age (' + model + ')')
+    plt.xlabel('Epochs')
+    plt.ylabel('Accuracy')
+
+  plt.legend(loc='upper left')
+  plt.show()
+
 def graph(history_race,history_age,history_gender, model):
-    plt.plot(history_race.history['accuracy'])
-    plt.plot(history_race.history['val_accuracy'])
+    plt.plot(history_race.history['accuracy'], label='race accuracy')
+    plt.plot(history_race.history['val_accuracy'], label='race val_accuracy')
     plt.title('Race (' + model + ')')
     plt.xlabel('Epochs')
     plt.ylabel('Accuracy')
     plt.legend(['train', 'val'], loc='upper left')
+    # plt.savefig(model + 'race')
+    # plt.clf()
     plt.show()
     plt.plot(history_race.history['loss'])
     plt.plot(history_race.history['val_loss'])
@@ -232,10 +279,10 @@ def graph(history_race,history_age,history_gender, model):
     plt.legend(['train', 'val'], loc='upper right')
     plt.show()
   
-graph(FC_race,FC_age,FC_gender,'FC')
+# graph(FC_race,FC_age,FC_gender,'FC')
 # graph(Conv_race,Conv_age,Conv_gender,'Conv')
 # graph(Conv2_race,Conv2_age,Conv2_gender,'Conv2')
-  
+graph4(branch_race_and_age,'Branch Convolutional')
   
   
   
