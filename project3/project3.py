@@ -15,8 +15,6 @@ from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 
-# tf.compat.v1.disable_eager_execution()
-
 def load_image(filename, data_dir):
     images = tf.zeros((1,32,32,1), dtype='uint8')
     for name in filename:
@@ -88,7 +86,6 @@ def Convolutional(task, lr, num_epochs=10):
                 loss=loss,
                 metrics=['accuracy'])
   history = convModel.fit(x=images_train, y=y_train, validation_data=(images_test,y_test), batch_size=batch_size, epochs=num_epochs)
-  convModel.summary()
   
   return history
 
