@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import OneHotEncoder
 from joblib import dump, load
 
+NUMCHARS = 47
+
 def trainingData(window_size, stride, file_name='beatles.txt'):
     try:
         x = np.load('x_data'+str(window_size)+str(stride)+'.npy')
@@ -20,23 +22,33 @@ def trainingData(window_size, stride, file_name='beatles.txt'):
         words = [word[0] for word in words] # List of strings
         vocab = np.array(list({ord(l) for word in words for l in word})).reshape(-1,1)
         enc.fit(vocab)
+
+        # vocab = {l for word in words for l in word}
+        # print(f'unique chars: {len(vocab)}')
+
+        # string of all lines
+        allWords = " ".join(words)
         x = np.empty((1,5,1))
         y= np.empty((1,5,1))
-        for sentence in words:
-            numbers = []
-            for letter in sentence:
-                numbers.append(ord(letter))
-            sentence = np.array(numbers).reshape(-1,1)
-            temp_x = np.array([sentence[stride*j:stride*j+window_size] for j in range(int((len(sentence)-window_size+1)/stride))])
-            temp_y = np.array([sentence[stride*j+1:stride*j+window_size+1] for j in range(int((len(sentence)-window_size+1)/stride))])
-            try: # Filters out windows that are dimensionless (weird indexing error)
-                x = np.append(x,temp_x,axis=0)
-                y = np.append(y,temp_y,axis=0)
-            except:
-                pass
-        x,y = x[1:],y[1:]
-        x_enc = enc.transform(x.reshape(-1,1)).reshape(-1,5,47)
-        y_enc = enc.transform(y.reshape(-1,1)).reshape(-1,5,47)
+        
+        numbers = []
+        for char in allWords:
+            numbers.append(ord(char))
+        
+        sentence = np.array(numbers).reshape(-1,1)
+
+        x = np.array([sentence[stride*j:stride*j+window_size] for j in range(int((len(sentence)-window_size+1)/stride))])
+        y = np.array([sentence[stride*j+1:stride*j+window_size+1] for j in range(int((len(sentence)-window_size+1)/stride))])
+        # try: # Filters out windows that are dimensionless (weird indexing error)
+        #     x = np.append(x,temp_x,axis=0)
+        #     y = np.append(y,temp_y,axis=0)
+        # except:
+        #     pass
+        # x,y = x[1:],y[1:]
+        x_enc = enc.fit_transform(x.reshape(-1,1))
+        x_enc = x_enc.reshape(-1,window_size,NUMCHARS)
+        y_enc = enc.fit_transform(y.reshape(-1,1)).reshape(-1,window_size,NUMCHARS)
+        
         np.save('x_data'+str(window_size)+str(stride),x_enc)
         np.save('y_data'+str(window_size)+str(stride),y_enc)
         dump(enc, 'enc.joblib')
@@ -55,7 +67,8 @@ def predict(given,model,numOfChars,temp=1): # currently passing only the last ge
     input_ = given
     x = given
     for _ in range(numOfChars):
-        out = model(x).numpy()[-1].reshape(1,5,47) 
+
+        out = model(x).numpy()[-1].reshape(1,5,NUMCHARS) 
         out = out.T==np.max(out.T,axis=0)
         out = out.T.astype('int')
         # if _ == 0:
@@ -73,12 +86,13 @@ def predict(given,model,numOfChars,temp=1): # currently passing only the last ge
             sentence.append(letter)
     return ''.join(sentence)
     
-x,y,enc = trainingData(5,3)
 
 def simpleRNN(temp):
     simpleRNN = keras.Sequential()
     simpleRNN.add(layers.SimpleRNN(units=100, activation='relu', return_sequences=True))
-    simpleRNN.add(layers.Dense(units=47, activation='linear'))
+
+    simpleRNN.add(layers.Dense(units=NUMCHARS, activation='linear'))
+
     simpleRNN.add(layers.Rescaling(1/temp))
     simpleRNN.add(layers.Softmax())
     return simpleRNN
@@ -89,15 +103,29 @@ def LSTM(temp):
     # LSTM.add(layers.Dropout(0.2))
     LSTM.add(layers.LSTM(units=100, activation='tanh', return_sequences=True))
     LSTM.add(layers.Dropout(0.2))
-    LSTM.add(layers.Dense(units=47, activation='linear'))
+
+    LSTM.add(layers.LSTM(units=100, activation='tanh', return_sequences=True))
+    LSTM.add(layers.Dropout(0.2))
+    LSTM.add(layers.Dense(units=NUMCHARS, activation='linear'))
+
     LSTM.add(layers.Rescaling(1/temp))
     LSTM.add(layers.Softmax())
     return LSTM
 
+# def trainingData(window_size, stride, file_name='beatles.txt'):
+x,y,enc = trainingData(5,3)
+# a,b,encoder = trainingData(10, 2)
 
 # hist = train(x,y,simpleRNN,numEpochs=1,lr=0.001)
 hist = train(x,y,LSTM,numEpochs=1,lr=0.003)
 
 
-pred = predict(x[0].reshape(1,5,47),LSTM,10,1)
+
+pred = predict(x[0].reshape(1,5,NUMCHARS),LSTM,10,1)
+print(pred)
+
+hist = train(x,y,simpleRNN,numEpochs=5,lr=0.003)
+
+
+pred = predict(x[0].reshape(1,5,NUMCHARS),simpleRNN,10,1)
 print(pred)
