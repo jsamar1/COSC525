@@ -40,19 +40,27 @@ def trainingData(window_size, stride, file_name='beatles.txt'):
         dump(enc, 'enc.joblib')
         return x_enc,y_enc,enc
 
-def train(x,y,model,numEpochs,lr):
+def train(x,y,model,numEpochs,lr,temp=1):
+    model = model(temp)
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr), loss='categorical_crossentropy', metrics=['accuracy'])
     history = model.fit(x,y,epochs=numEpochs,batch_size=64,verbose=1,validation_split=0.2,shuffle=True,callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss',patience=5)])
     return history
 
-def predict(given,model,temp,numOfChars):
+def predict(given,model,numOfChars,temp=1): # currently passing only the last generated sequence
+    model = model(temp)
+    input_ = given
     x = given
     for _ in range(numOfChars):
-        out = model(x).numpy()
-        temp = out.T==np.max(out.T,axis=0)
-        temp = temp.T.astype('int')
-        x = np.append(x,temp,axis=0)
-        
+        out = model(x).numpy()[-1].reshape(1,5,45) 
+        out = out.T==np.max(out.T,axis=0)
+        out = out.T.astype('int')
+        # if _ == 0:
+        #     outs = temp
+        # else:
+        #     outs = np.append(outs,temp,axis=0)
+        # x = temp
+        x = np.append(x,out,axis=0)
+        print(x.shape)
     sentence = []
     for i in range(len(x)):
         nums = enc.inverse_transform(x[i])
@@ -64,12 +72,29 @@ def predict(given,model,temp,numOfChars):
     
 x,y,enc = trainingData(5,3)
 
-simpleRNN = keras.Sequential()
-simpleRNN.add(layers.SimpleRNN(units=100, activation='relu', return_sequences=True))
-simpleRNN.add(layers.Dense(units=45, activation='softmax'))
+def simpleRNN(temp):
+    simpleRNN = keras.Sequential()
+    simpleRNN.add(layers.SimpleRNN(units=100, activation='relu', return_sequences=True))
+    simpleRNN.add(layers.Dense(units=45, activation='linear'))
+    simpleRNN.add(layers.Rescaling(1/temp))
+    simpleRNN.add(layers.Softmax())
+    return simpleRNN
+
+def LSTM(temp):
+    LSTM = keras.Sequential()
+    LSTM.add(layers.LSTM(units=100, activation='tanh', return_sequences=True))
+    LSTM.add(layers.Dropout(0.2))
+    LSTM.add(layers.LSTM(units=100, activation='tanh', return_sequences=True))
+    LSTM.add(layers.Dropout(0.2))
+    LSTM.add(layers.Dense(units=45, activation='linear'))
+    LSTM.add(layers.Rescaling(1/temp))
+    LSTM.add(layers.Softmax())
+    return LSTM
 
 
-hist = train(x,y,simpleRNN,numEpochs=5,lr=0.001)
+#hist = train(x,y,simpleRNN,numEpochs=5,lr=0.001)
+hist = train(x,y,LSTM,numEpochs=5,lr=0.003)
 
 
-pred = predict(x[0].reshape(1,5,45),simpleRNN,1,1)
+pred = predict(x[0].reshape(1,5,45),LSTM,10,1)
+print(pred)
