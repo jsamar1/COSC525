@@ -12,12 +12,14 @@ def trainingData(window_size, stride, file_name='beatles.txt'):
         x = np.load('x_data'+str(window_size)+str(stride)+'.npy')
         y = np.load('y_data'+str(window_size)+str(stride)+'.npy')
         clf = load('enc.joblib')
-        return x,y,enc
+        print('load')
+        return x,y,clf
     except:
         enc = OneHotEncoder(sparse=False)
-        enc.n_features_in_ = 45
         words = pd.read_fwf(file_name).values.tolist()
         words = [word[0] for word in words] # List of strings
+        vocab = np.array(list({ord(l) for word in words for l in word})).reshape(-1,1)
+        enc.fit(vocab)
         x = np.empty((1,5,1))
         y= np.empty((1,5,1))
         for sentence in words:
@@ -33,16 +35,18 @@ def trainingData(window_size, stride, file_name='beatles.txt'):
             except:
                 pass
         x,y = x[1:],y[1:]
-        x_enc = enc.fit_transform(x.reshape(-1,1)).reshape(-1,5,45)
-        y_enc = enc.fit_transform(y.reshape(-1,1)).reshape(-1,5,45)
+        x_enc = enc.transform(x.reshape(-1,1)).reshape(-1,5,47)
+        y_enc = enc.transform(y.reshape(-1,1)).reshape(-1,5,47)
         np.save('x_data'+str(window_size)+str(stride),x_enc)
         np.save('y_data'+str(window_size)+str(stride),y_enc)
         dump(enc, 'enc.joblib')
+        print('save')
         return x_enc,y_enc,enc
 
 def train(x,y,model,numEpochs,lr,temp=1):
     model = model(temp)
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr), loss='categorical_crossentropy', metrics=['accuracy'])
+    print(x.shape,y.shape)
     history = model.fit(x,y,epochs=numEpochs,batch_size=64,verbose=1,validation_split=0.2,shuffle=True,callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss',patience=5)])
     return history
 
@@ -51,7 +55,7 @@ def predict(given,model,numOfChars,temp=1): # currently passing only the last ge
     input_ = given
     x = given
     for _ in range(numOfChars):
-        out = model(x).numpy()[-1].reshape(1,5,45) 
+        out = model(x).numpy()[-1].reshape(1,5,47) 
         out = out.T==np.max(out.T,axis=0)
         out = out.T.astype('int')
         # if _ == 0:
@@ -60,7 +64,6 @@ def predict(given,model,numOfChars,temp=1): # currently passing only the last ge
         #     outs = np.append(outs,temp,axis=0)
         # x = temp
         x = np.append(x,out,axis=0)
-        print(x.shape)
     sentence = []
     for i in range(len(x)):
         nums = enc.inverse_transform(x[i])
@@ -75,26 +78,26 @@ x,y,enc = trainingData(5,3)
 def simpleRNN(temp):
     simpleRNN = keras.Sequential()
     simpleRNN.add(layers.SimpleRNN(units=100, activation='relu', return_sequences=True))
-    simpleRNN.add(layers.Dense(units=45, activation='linear'))
+    simpleRNN.add(layers.Dense(units=47, activation='linear'))
     simpleRNN.add(layers.Rescaling(1/temp))
     simpleRNN.add(layers.Softmax())
     return simpleRNN
 
 def LSTM(temp):
     LSTM = keras.Sequential()
+    # LSTM.add(layers.LSTM(units=100, activation='tanh', return_sequences=True))
+    # LSTM.add(layers.Dropout(0.2))
     LSTM.add(layers.LSTM(units=100, activation='tanh', return_sequences=True))
     LSTM.add(layers.Dropout(0.2))
-    LSTM.add(layers.LSTM(units=100, activation='tanh', return_sequences=True))
-    LSTM.add(layers.Dropout(0.2))
-    LSTM.add(layers.Dense(units=45, activation='linear'))
+    LSTM.add(layers.Dense(units=47, activation='linear'))
     LSTM.add(layers.Rescaling(1/temp))
     LSTM.add(layers.Softmax())
     return LSTM
 
 
-#hist = train(x,y,simpleRNN,numEpochs=5,lr=0.001)
-hist = train(x,y,LSTM,numEpochs=5,lr=0.003)
+# hist = train(x,y,simpleRNN,numEpochs=1,lr=0.001)
+hist = train(x,y,LSTM,numEpochs=1,lr=0.003)
 
 
-pred = predict(x[0].reshape(1,5,45),LSTM,10,1)
+pred = predict(x[0].reshape(1,5,47),LSTM,10,1)
 print(pred)
