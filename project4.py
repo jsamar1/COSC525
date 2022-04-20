@@ -14,12 +14,13 @@ def trainingData(window_size, stride, file_name='beatles.txt'):
         x = np.load('x_data'+str(window_size)+str(stride)+'.npy')
         y = np.load('y_data'+str(window_size)+str(stride)+'.npy')
         clf = load('enc.joblib')
-        return x,y,clf
+        return x,y,enc
     except:
         enc = OneHotEncoder(sparse=False)
         words = pd.read_fwf(file_name).values.tolist()
         words = [word[0] for word in words] # List of strings
-        
+        vocab = np.array(list({ord(l) for word in words for l in word})).reshape(-1,1)
+        enc.fit(vocab)
         # vocab = {l for word in words for l in word}
         # print(f'unique chars: {len(vocab)}')
 
@@ -105,13 +106,13 @@ x,y,enc = trainingData(5,3)
 # a,b,encoder = trainingData(10, 2)
 
 #hist = train(x,y,simpleRNN,numEpochs=5,lr=0.001)
-hist = train(x,y,LSTM,numEpochs=20,lr=0.003)
+hist = train(x,y,LSTM,numEpochs=5,lr=0.003)
 
 
 pred = predict(x[0].reshape(1,5,NUMCHARS),LSTM,10,1)
 print(pred)
 
-hist = train(x,y,simpleRNN,numEpochs=20,lr=0.003)
+hist = train(x,y,simpleRNN,numEpochs=5,lr=0.003)
 
 
 pred = predict(x[0].reshape(1,5,NUMCHARS),simpleRNN,10,1)
