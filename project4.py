@@ -30,7 +30,9 @@ def trainingData(window_size, stride, file_name='beatles.txt'):
 
         # string of all lines
         allWords = "\n".join(words)
-        allWords = re.sub('[^a-zA-Z!?\',\n ]+', '', allWords)
+        #allWords = re.sub('[^a-zA-Z!?\',\n ]+', '', allWords)
+        removeChars = ['6', '8', '2', '3', '4', '7', ':','5','1','0','9','!','?']
+        allWords = allWords.translate({ord(x): '' for x in removeChars})
         vocab = np.array(list({ord(l) for l in allWords})).reshape(-1,1)
         NUMCHARS = len(vocab)
         enc.fit(vocab)
@@ -115,7 +117,7 @@ def LSTM(temp):
     return LSTM
 
 # def trainingData(window_size, stride, file_name='beatles.txt'):
-x,y,enc = trainingData(10,5)
+x,y,enc = trainingData(7,4)
 
 # a,b,encoder = trainingData(10, 2)
 
@@ -131,3 +133,4 @@ print(pred)
 
 # pred = predict(x[0].reshape(1,5,NUMCHARS),sModel,10,1)
 # print(pred)
+
