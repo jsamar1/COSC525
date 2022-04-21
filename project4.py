@@ -6,8 +6,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import OneHotEncoder
 from joblib import dump, load
+import re
 
-NUMCHARS = 47
+NUMCHARS = 27
 
 def trainingData(window_size, stride, file_name='beatles.txt'):
     try:
@@ -20,14 +21,16 @@ def trainingData(window_size, stride, file_name='beatles.txt'):
         enc = OneHotEncoder(sparse=False)
         words = pd.read_fwf(file_name).values.tolist()
         words = [word[0] for word in words] # List of strings
-        vocab = np.array(list({ord(l) for word in words for l in word})).reshape(-1,1)
-        enc.fit(vocab)
-
         # vocab = {l for word in words for l in word}
         # print(f'unique chars: {len(vocab)}')
 
         # string of all lines
-        allWords = " ".join(words)
+        allWords = "\n".join(words)
+        allWords = re.sub('[^a-zA-Z!?\',\n ]+', '', allWords)
+        vocab = np.array(list({ord(l) for l in allWords})).reshape(-1,1)
+        global NUMCHARS
+        NUMCHARS = len(vocab)
+        enc.fit(vocab)
         x = np.empty((1,5,1))
         y= np.empty((1,5,1))
         
@@ -60,10 +63,10 @@ def train(x,y,model,numEpochs,lr,temp=1):
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr), loss='categorical_crossentropy', metrics=['accuracy'])
     print(x.shape,y.shape)
     history = model.fit(x,y,epochs=numEpochs,batch_size=64,verbose=1,validation_split=0.2,shuffle=True,callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss',patience=5)])
-    return history
+    return history, model
 
 def predict(given,model,numOfChars,temp=1): # currently passing only the last generated sequence
-    model = model(temp)
+    # model = model(temp)
     input_ = given
     x = given
     for _ in range(numOfChars):
@@ -116,16 +119,15 @@ def LSTM(temp):
 x,y,enc = trainingData(5,3)
 # a,b,encoder = trainingData(10, 2)
 
-# hist = train(x,y,simpleRNN,numEpochs=1,lr=0.001)
-hist = train(x,y,LSTM,numEpochs=1,lr=0.003)
+#hist = train(x,y,simpleRNN,numEpochs=5,lr=0.001)
+hist, lModel = train(x,y,LSTM,numEpochs=5,lr=0.01)
 
 
-
-pred = predict(x[0].reshape(1,5,NUMCHARS),LSTM,10,1)
+pred = predict(x[0].reshape(1,5,NUMCHARS),lModel,10,1)
 print(pred)
 
-hist = train(x,y,simpleRNN,numEpochs=5,lr=0.003)
+hist, sModel = train(x,y,simpleRNN,numEpochs=5,lr=0.003)
 
 
-pred = predict(x[0].reshape(1,5,NUMCHARS),simpleRNN,10,1)
+pred = predict(x[0].reshape(1,5,NUMCHARS),sModel,10,1)
 print(pred)
