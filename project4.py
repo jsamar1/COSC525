@@ -120,7 +120,7 @@ x,y,enc = trainingData(5,3)
 # a,b,encoder = trainingData(10, 2)
 
 #hist = train(x,y,simpleRNN,numEpochs=5,lr=0.001)
-hist, lModel = train(x,y,LSTM,numEpochs=5,lr=0.01)
+hist, lModel = train(x,y,LSTM,numEpochs=5,lr=0.003)
 
 
 pred = predict(x[0].reshape(1,5,NUMCHARS),lModel,10,1)
