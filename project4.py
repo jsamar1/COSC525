@@ -11,11 +11,13 @@ import re
 NUMCHARS = 27
 
 def trainingData(window_size, stride, file_name='beatles.txt'):
+    global NUMCHARS
     try:
         x = np.load('x_data'+str(window_size)+str(stride)+'.npy')
         y = np.load('y_data'+str(window_size)+str(stride)+'.npy')
         clf = load('enc.joblib')
         print('load')
+        NUMCHARS = x.shape[2]
         return x,y,clf
     except:
         enc = OneHotEncoder(sparse=False)
@@ -28,7 +30,6 @@ def trainingData(window_size, stride, file_name='beatles.txt'):
         allWords = "\n".join(words)
         allWords = re.sub('[^a-zA-Z!?\',\n ]+', '', allWords)
         vocab = np.array(list({ord(l) for l in allWords})).reshape(-1,1)
-        global NUMCHARS
         NUMCHARS = len(vocab)
         enc.fit(vocab)
         x = np.empty((1,5,1))
