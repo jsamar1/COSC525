@@ -5,8 +5,10 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import OneHotEncoder
+from sklearn.model_selection import train_test_split
 from joblib import dump, load
 import re
+
 
 NUMCHARS = 27
 
@@ -32,8 +34,6 @@ def trainingData(window_size, stride, file_name='beatles.txt'):
         vocab = np.array(list({ord(l) for l in allWords})).reshape(-1,1)
         NUMCHARS = len(vocab)
         enc.fit(vocab)
-        x = np.empty((1,5,1))
-        y= np.empty((1,5,1))
         
         numbers = []
         for char in allWords:
@@ -59,20 +59,19 @@ def trainingData(window_size, stride, file_name='beatles.txt'):
         print('save')
         return x_enc,y_enc,enc
 
-def train(x,y,model,numEpochs,lr,temp=1):
+def train(train_set,test_set,model,numEpochs,lr,temp=1):
     model = model(temp)
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr), loss='categorical_crossentropy', metrics=['accuracy'])
     print(x.shape,y.shape)
-    history = model.fit(x,y,epochs=numEpochs,batch_size=64,verbose=1,validation_split=0.2,shuffle=True,callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss',patience=5)])
+    history = model.fit(train_set,validation_data=test_set,epochs=numEpochs,verbose=1,callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss',patience=5)])
     return history, model
 
 def predict(given,model,numOfChars,temp=1): # currently passing only the last generated sequence
     # model = model(temp)
-    input_ = given
     x = given
     for _ in range(numOfChars):
 
-        out = model(x).numpy()[-1].reshape(1,5,NUMCHARS) 
+        out = model(x[-1].reshape(2,5,NUMCHARS) , training=False).numpy()[-1].reshape(1,5,NUMCHARS) 
         out = out.T==np.max(out.T,axis=0)
         out = out.T.astype('int')
         # if _ == 0:
@@ -103,13 +102,13 @@ def simpleRNN(temp):
 
 def LSTM(temp):
     LSTM = keras.Sequential()
-    # LSTM.add(layers.LSTM(units=100, activation='tanh', return_sequences=True))
-    # LSTM.add(layers.Dropout(0.2))
+    LSTM.add(layers.LSTM(units=100, activation='tanh', return_sequences=True))
+    LSTM.add(layers.Dropout(0.2))
     LSTM.add(layers.LSTM(units=100, activation='tanh', return_sequences=True))
     LSTM.add(layers.Dropout(0.2))
 
-    LSTM.add(layers.LSTM(units=100, activation='tanh', return_sequences=True))
-    LSTM.add(layers.Dropout(0.2))
+    # LSTM.add(layers.LSTM(units=100, activation='tanh', return_sequences=True))
+    # LSTM.add(layers.Dropout(0.2))
     LSTM.add(layers.Dense(units=NUMCHARS, activation='linear'))
 
     LSTM.add(layers.Rescaling(1/temp))
@@ -118,17 +117,22 @@ def LSTM(temp):
 
 # def trainingData(window_size, stride, file_name='beatles.txt'):
 x,y,enc = trainingData(5,3)
+x_train, x_test, y_train, y_test = train_test_split(x,y,test_size=0.2,random_state=42)
+train_set = tf.data.Dataset.from_tensor_slices((x,y))
+train_set = train_set.shuffle(buffer_size=1000).batch(64)
+test_set = tf.data.Dataset.from_tensor_slices((x_test,y_test))
+test_set = test_set.shuffle(buffer_size=1000).batch(64)
 # a,b,encoder = trainingData(10, 2)
 
 #hist = train(x,y,simpleRNN,numEpochs=5,lr=0.001)
-hist, lModel = train(x,y,LSTM,numEpochs=5,lr=0.003)
+hist, lModel = train(train_set,test_set,LSTM,numEpochs=5,lr=0.003)
 
 
 pred = predict(x[0].reshape(1,5,NUMCHARS),lModel,10,1)
 print(pred)
 
-hist, sModel = train(x,y,simpleRNN,numEpochs=5,lr=0.003)
+# hist, sModel = train(train_set,simpleRNN,numEpochs=5,lr=0.003)
 
 
-pred = predict(x[0].reshape(1,5,NUMCHARS),sModel,10,1)
-print(pred)
+# pred = predict(x[0].reshape(1,5,NUMCHARS),sModel,10,1)
+# print(pred)
