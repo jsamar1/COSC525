@@ -8,6 +8,7 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
 from joblib import dump, load
 import re
+import sys
 
 
 NUMCHARS = 27
@@ -15,15 +16,15 @@ NUMCHARS = 27
 def trainingData(window_size, stride, file_name='beatles.txt'):
     global NUMCHARS
     try:
-        x = np.load('x_data'+str(window_size)+str(stride)+'.npy')
-        y = np.load('y_data'+str(window_size)+str(stride)+'.npy')
-        clf = load('enc.joblib')
+        x = np.load('x_data'+str(window_size)+str(stride)+'.npy') # Load x data
+        y = np.load('y_data'+str(window_size)+str(stride)+'.npy') # Load y data
+        clf = load('enc.joblib') # Load encoder
         print('load')
-        NUMCHARS = x.shape[2]
+        NUMCHARS = x.shape[2] # Set number of chars
         return x,y,clf
     except:
         enc = OneHotEncoder(sparse=False)
-        words = pd.read_fwf(file_name).values.tolist()
+        words = pd.read_fwf(file_name).values.tolist() # Read file
         words = [word[0] for word in words] # List of strings
         # vocab = {l for word in words for l in word}
         # print(f'unique chars: {len(vocab)}')
@@ -31,106 +32,116 @@ def trainingData(window_size, stride, file_name='beatles.txt'):
         # string of all lines
         allWords = "\n".join(words)
         #allWords = re.sub('[^a-zA-Z!?\',\n ]+', '', allWords)
-        removeChars = ['6', '8', '2', '3', '4', '7', ':','5','1','0','9','!','?']
-        allWords = allWords.translate({ord(x): '' for x in removeChars})
-        vocab = np.array(list({ord(l) for l in allWords})).reshape(-1,1)
+        removeChars = ['6', '8', '2', '3', '4', '7', ':','5','1','0','9','!','?'] # Remove these chars
+        allWords = allWords.translate({ord(x): '' for x in removeChars}) # Remove chars
+        vocab = np.array(list({ord(l) for l in allWords})).reshape(-1,1) # List of unique chars
         NUMCHARS = len(vocab)
-        enc.fit(vocab)
+        enc.fit(vocab) # Encode chars
         
         numbers = []
         for char in allWords:
-            numbers.append(ord(char))
+            numbers.append(ord(char)) # List of ords
         
-        sentence = np.array(numbers).reshape(-1,1)
+        sentence = np.array(numbers).reshape(-1,1) # Convert to array
 
-        x = np.array([sentence[stride*j:stride*j+window_size] for j in range(int((len(sentence)-window_size+1)/stride))])
-        y = np.array([sentence[stride*j+1:stride*j+window_size+1] for j in range(int((len(sentence)-window_size+1)/stride))])
-        # try: # Filters out windows that are dimensionless (weird indexing error)
-        #     x = np.append(x,temp_x,axis=0)
-        #     y = np.append(y,temp_y,axis=0)
-        # except:
-        #     pass
-        # x,y = x[1:],y[1:]
-        x_enc = enc.fit_transform(x.reshape(-1,1))
-        x_enc = x_enc.reshape(-1,window_size,NUMCHARS)
-        y_enc = enc.fit_transform(y.reshape(-1,1)).reshape(-1,window_size,NUMCHARS)
+        x = np.array([sentence[stride*j:stride*j+window_size] for j in range(int((len(sentence)-window_size+1)/stride))]) # Create x data
+        y = np.array([sentence[stride*j+1:stride*j+window_size+1] for j in range(int((len(sentence)-window_size+1)/stride))]) # Create y data
+
+        x_enc = enc.fit_transform(x.reshape(-1,1)) # Encode x data
+        x_enc = x_enc.reshape(-1,window_size,NUMCHARS) 
+        y_enc = enc.fit_transform(y.reshape(-1,1)).reshape(-1,window_size,NUMCHARS) # Encode y data
         
-        np.save('x_data'+str(window_size)+str(stride),x_enc)
-        np.save('y_data'+str(window_size)+str(stride),y_enc)
-        dump(enc, 'enc.joblib')
+        np.save('x_data'+str(window_size)+str(stride),x_enc) # Save x data
+        np.save('y_data'+str(window_size)+str(stride),y_enc) # Save y data
+        dump(enc, 'enc.joblib') # Save encoder
         print('save')
         return x_enc,y_enc,enc
 
-def train(x,y,model,numEpochs,lr,temp=1):
-    model = model(temp)
-    model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr), loss='categorical_crossentropy', metrics=['accuracy'])
-    print(x.shape,y.shape)
-    history = model.fit(x,y,validation_split=0.2,epochs=numEpochs,verbose=1,callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss',patience=5)])
+def train(x,y,model,numEpochs,lr,hiddenSize,temp=1):
+    model = model(hiddenSize,temp) # Create model
+    model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr), loss='categorical_crossentropy', metrics=['accuracy']) 
+    history = model.fit(x,y,validation_split=0.2,epochs=numEpochs,verbose=1,callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss',patience=5)]) # Train model
     return history, model
 
-def predict(given,model,numOfChars,temp=1): # currently passing only the last generated sequence
-    # model = model(temp)
+def predict(given,model,numOfChars):
     x = given
     for _ in range(numOfChars):
-        out = model(x, training=False).numpy()[-1].reshape(1,-1,NUMCHARS)  # new
-        out = out.T==np.max(out.T,axis=0)
-        out = out.T.astype('int')
-        # if _ == 0:
-        #     outs = temp
-        # else:
-        #     outs = np.append(outs,temp,axis=0)
-        # x = temp
-        x = np.append(x,out,axis=0)
+        out = model(x, training=False).numpy()[-1].reshape(1,-1,NUMCHARS)  # Predict next window of characters
+        out = out.T==np.max(out.T,axis=0) # Convert to one-hot
+        out = out.T.astype('int') # Convert to int
+        x = np.append(x,out,axis=0) # Add to input
+
     sentence = []
     for i in range(len(x)):
-        nums = enc.inverse_transform(x[i])
+        nums = enc.inverse_transform(x[i]) # Convert back to ords
         for num in nums:
-            num = int(num[0])
-            letter = chr(num)
-            sentence.append(letter)
-    return ''.join(sentence)
+            num = int(num[0]) 
+            letter = chr(num) # Convert to char
+            sentence.append(letter) # Add to sentence
+    return ''.join(sentence) # Return sentence
     
 
-def simpleRNN(temp):
+def simpleRNN(hiddenSize,temp):
     simpleRNN = keras.Sequential()
-    simpleRNN.add(layers.SimpleRNN(units=100, activation='relu', return_sequences=True))
+    simpleRNN.add(layers.SimpleRNN(units=hiddenSize, activation='relu', return_sequences=True)) 
 
-    simpleRNN.add(layers.Dense(units=NUMCHARS, activation='linear'))
+    simpleRNN.add(layers.Dense(units=NUMCHARS, activation='linear')) 
 
     simpleRNN.add(layers.Rescaling(1/temp))
     simpleRNN.add(layers.Softmax())
     return simpleRNN
 
-def LSTM(temp):
+def LSTM(hiddenSize,temp):
     LSTM = keras.Sequential()
-    LSTM.add(layers.LSTM(units=100, activation='tanh', return_sequences=True))
+    LSTM.add(layers.LSTM(units=hiddenSize, activation='tanh', return_sequences=True))
     LSTM.add(layers.Dropout(0.2))
-    # LSTM.add(layers.LSTM(units=100, activation='tanh', return_sequences=True))
-    # LSTM.add(layers.Dropout(0.2))
 
-    # LSTM.add(layers.LSTM(units=100, activation='tanh', return_sequences=True))
-    # LSTM.add(layers.Dropout(0.2))
     LSTM.add(layers.Dense(units=NUMCHARS, activation='linear'))
 
     LSTM.add(layers.Rescaling(1/temp))
     LSTM.add(layers.Softmax())
     return LSTM
 
-# def trainingData(window_size, stride, file_name='beatles.txt'):
-x,y,enc = trainingData(7,4)
+# Define command line argument execution
+if len(sys.argv) > 1:
+    file = sys.argv[1]
+    modelType = sys.argv[2]
+    hiddenSize = int(sys.argv[3])
+    windowSize = int(sys.argv[4])
+    stride = int(sys.argv[5])
+    temp = int(sys.argv[6])
 
-# a,b,encoder = trainingData(10, 2)
+    # Load and parse data
+    x,y,enc = trainingData(windowSize, stride, file)
 
-#hist = train(x,y,simpleRNN,numEpochs=5,lr=0.001)
-hist, lModel = train(x,y,LSTM,numEpochs=7,lr=0.003)
+    # Train model
+    if modelType == 'simple':
+        hist, Model = train(x,y,simpleRNN,numEpochs=5,lr=0.001,hiddenSize=hiddenSize,temp=temp)
+    elif modelType == 'lstm':
+        hist, Model = train(x,y,LSTM,numEpochs=5,lr=0.001,hiddenSize=hiddenSize,temp=temp)
+    else:
+        print('Invalid model type')
+        sys.exit()
+
+    # Initialize prediction with first x window
+    pred = predict(x[0].reshape(1,-1,NUMCHARS),Model,5)
+    print(pred)
+
+else: # If command line arguments are not given
+    # def trainingData(window_size, stride, file_name='beatles.txt'):
+    x,y,enc = trainingData(7,4)
+
+    # a,b,encoder = trainingData(10, 2)
+
+    #hist = train(x,y,simpleRNN,numEpochs=5,lr=0.001)
+    hist, lModel = train(x,y,LSTM,numEpochs=7,lr=0.003)
 
 
-pred = predict(x[0].reshape(1,-1,NUMCHARS),lModel,10,1)
-print(pred)
+    pred = predict(x[0].reshape(1,-1,NUMCHARS),lModel,10,1)
+    print(pred)
 
-# hist, sModel = train(train_set,simpleRNN,numEpochs=5,lr=0.003)
+    # hist, sModel = train(train_set,simpleRNN,numEpochs=5,lr=0.003)
 
 
-# pred = predict(x[0].reshape(1,5,NUMCHARS),sModel,10,1)
-# print(pred)
-
+    # pred = predict(x[0].reshape(1,5,NUMCHARS),sModel,10,1)
+    # print(pred)
