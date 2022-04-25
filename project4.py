@@ -60,16 +60,19 @@ def trainingData(window_size, stride, file_name='beatles.txt'):
 def train(x,y,model,numEpochs,lr,hiddenSize,temp=1):
     model = model(hiddenSize,temp) # Create model
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr), loss='categorical_crossentropy', metrics=['accuracy']) 
-    history = model.fit(x,y,validation_split=0.2,epochs=numEpochs,verbose=1,callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss',patience=5)]) # Train model
+    history = model.fit(x,y,validation_split=0.2,epochs=numEpochs,verbose=1,callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss',patience=3)]) # Train model
     return history, model
 
 def predict(given,model,numOfChars):
-    x = given
+    x = given[0][-1].reshape(1, 1, NUMCHARS)
     for _ in range(numOfChars):
-        out = model(x, training=False).numpy()[-1].reshape(1,-1,NUMCHARS)  # Predict next window of characters
+        out = model(x.reshape(1,-1,NUMCHARS), training=False).numpy()[-1].reshape(1,-1,NUMCHARS)  # Predict next window of characters
+        target = out[0][-1].reshape(1,-1,NUMCHARS)
+        target = target.T==np.max(target.T,axis=0) # Convert to one-hot
+        target = target.T.astype('int') # Convert to int
         out = out.T==np.max(out.T,axis=0) # Convert to one-hot
         out = out.T.astype('int') # Convert to int
-        x = np.append(x,out,axis=0) # Add to input
+        x = np.append(x,target,axis=0) # Add to input
 
     sentence = []
     for i in range(len(x)):
@@ -80,6 +83,19 @@ def predict(given,model,numOfChars):
             sentence.append(letter) # Add to sentence
     return ''.join(sentence) # Return sentence
     
+def graphGeneral(history, model, filename, title):
+  # loss graphic
+  for key in history.history.keys():
+    if('val' in key or 'accuracy' in key): continue
+
+    plt.plot(history.history[key], label=key)
+    plt.plot(history.history['val_' + key], label='validation_' + key)
+    plt.title(title)
+    plt.xlabel('Epochs')
+    plt.ylabel(key)
+  plt.legend(loc='upper left')
+  plt.savefig(filename+ '-loss')
+  plt.clf()
 
 def simpleRNN(hiddenSize,temp):
     simpleRNN = keras.Sequential()
@@ -116,32 +132,47 @@ if len(sys.argv) > 1:
 
     # Train model
     if modelType == 'simple':
-        hist, Model = train(x,y,simpleRNN,numEpochs=5,lr=0.001,hiddenSize=hiddenSize,temp=temp)
+        hist, Model = train(x,y,simpleRNN,numEpochs=50,lr=0.001,hiddenSize=hiddenSize,temp=temp)
     elif modelType == 'lstm':
-        hist, Model = train(x,y,LSTM,numEpochs=5,lr=0.001,hiddenSize=hiddenSize,temp=temp)
+        hist, Model = train(x,y,LSTM,numEpochs=50,lr=0.001,hiddenSize=hiddenSize,temp=temp)
     else:
         print('Invalid model type')
         sys.exit()
 
     # Initialize prediction with first x window
-    pred = predict(x[0].reshape(1,-1,NUMCHARS),Model,5)
-    print(pred)
+    pred1 = predict(x[0].reshape(1,-1,NUMCHARS),Model,150)
+    print(pred1)
+    # pred2 = predict(x[15].reshape(1,-1,NUMCHARS),Model,150)
+    # pred3 = predict(x[67].reshape(1,-1,NUMCHARS),Model,150)
+    # # print(pred[9::10])
+
+    # with open(str(modelType)+str(hiddenSize)+str(windowSize)+'2.txt', 'w') as f:
+    #     f.write(pred1)
+    #     f.write('\n----------------------------------------------------------------\n')
+    #     f.write(pred2)
+    #     f.write('\n----------------------------------------------------------------\n')
+    #     f.write(pred3)
+
+    
+    graphGeneral(hist, Model, str(modelType)+str(hiddenSize)+str(windowSize), "Epoch-Loss")
 
 else: # If command line arguments are not given
     # def trainingData(window_size, stride, file_name='beatles.txt'):
-    x,y,enc = trainingData(7,4)
+    x,y,enc = trainingData(10,5)
 
     # a,b,encoder = trainingData(10, 2)
 
     #hist = train(x,y,simpleRNN,numEpochs=5,lr=0.001)
-    hist, lModel = train(x,y,LSTM,numEpochs=7,lr=0.003)
+    hist, lModel = train(x,y,LSTM,numEpochs=15,lr=0.003, hiddenSize=100)
 
 
-    pred = predict(x[0].reshape(1,-1,NUMCHARS),lModel,10,1)
+    pred = predict(x[0].reshape(1,-1,NUMCHARS),lModel,100)
     print(pred)
+    # print('\n\n')
 
-    # hist, sModel = train(train_set,simpleRNN,numEpochs=5,lr=0.003)
+
+    # hist, sModel = train(x,y,simpleRNN,numEpochs=55,lr=0.003,hiddenSize=100)
 
 
-    # pred = predict(x[0].reshape(1,5,NUMCHARS),sModel,10,1)
+    # pred = predict(x[0].reshape(1,-1,NUMCHARS),sModel,150)
     # print(pred)
