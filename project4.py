@@ -12,13 +12,14 @@ import sys
 
 
 NUMCHARS = 27
+folder = './project3Data/'
 
 def trainingData(window_size, stride, file_name='beatles.txt'):
     global NUMCHARS
     try:
-        x = np.load('x_data'+str(window_size)+str(stride)+'.npy') # Load x data
-        y = np.load('y_data'+str(window_size)+str(stride)+'.npy') # Load y data
-        clf = load('enc.joblib') # Load encoder
+        x = np.load(folder+'x_data'+str(window_size)+str(stride)+'.npy') # Load x data
+        y = np.load(folder+'y_data'+str(window_size)+str(stride)+'.npy') # Load y data
+        clf = load(folder+'enc.joblib') # Load encoder
         print('load')
         NUMCHARS = x.shape[2] # Set number of chars
         return x,y,clf
@@ -26,12 +27,7 @@ def trainingData(window_size, stride, file_name='beatles.txt'):
         enc = OneHotEncoder(sparse=False)
         words = pd.read_fwf(file_name).values.tolist() # Read file
         words = [word[0] for word in words] # List of strings
-        # vocab = {l for word in words for l in word}
-        # print(f'unique chars: {len(vocab)}')
-
-        # string of all lines
         allWords = "\n".join(words)
-        #allWords = re.sub('[^a-zA-Z!?\',\n ]+', '', allWords)
         removeChars = ['6', '8', '2', '3', '4', '7', ':','5','1','0','9','!','?'] # Remove these chars
         allWords = allWords.translate({ord(x): '' for x in removeChars}) # Remove chars
         vocab = np.array(list({ord(l) for l in allWords})).reshape(-1,1) # List of unique chars
@@ -47,13 +43,13 @@ def trainingData(window_size, stride, file_name='beatles.txt'):
         x = np.array([sentence[stride*j:stride*j+window_size] for j in range(int((len(sentence)-window_size+1)/stride))]) # Create x data
         y = np.array([sentence[stride*j+1:stride*j+window_size+1] for j in range(int((len(sentence)-window_size+1)/stride))]) # Create y data
 
-        x_enc = enc.fit_transform(x.reshape(-1,1)) # Encode x data
+        x_enc = enc.transform(x.reshape(-1,1)) # Encode x data
         x_enc = x_enc.reshape(-1,window_size,NUMCHARS) 
-        y_enc = enc.fit_transform(y.reshape(-1,1)).reshape(-1,window_size,NUMCHARS) # Encode y data
+        y_enc = enc.transform(y.reshape(-1,1)).reshape(-1,window_size,NUMCHARS) # Encode y data
         
-        np.save('x_data'+str(window_size)+str(stride),x_enc) # Save x data
-        np.save('y_data'+str(window_size)+str(stride),y_enc) # Save y data
-        dump(enc, 'enc.joblib') # Save encoder
+        np.save(folder+'x_data'+str(window_size)+str(stride),x_enc) # Save x data
+        np.save(folder+'y_data'+str(window_size)+str(stride),y_enc) # Save y data
+        dump(enc, folder+'enc.joblib') # Save encoder
         print('save')
         return x_enc,y_enc,enc
 
@@ -64,15 +60,17 @@ def train(x,y,model,numEpochs,lr,hiddenSize,temp=1):
     return history, model
 
 def predict(given,model,numOfChars):
-    x = given[0][-1].reshape(1, 1, NUMCHARS)
+    numbers = []
+    for letter in given:
+        numbers.append(ord(letter))
+    numbers = np.array(numbers).reshape(-1,1)
+    x = enc.transform(numbers).reshape(1,-1,NUMCHARS)
+
     for _ in range(numOfChars):
-        out = model(x.reshape(1,-1,NUMCHARS), training=False).numpy()[-1].reshape(1,-1,NUMCHARS)  # Predict next window of characters
-        target = out[0][-1].reshape(1,-1,NUMCHARS)
-        target = target.T==np.max(target.T,axis=0) # Convert to one-hot
-        target = target.T.astype('int') # Convert to int
-        out = out.T==np.max(out.T,axis=0) # Convert to one-hot
-        out = out.T.astype('int') # Convert to int
-        x = np.append(x,target,axis=0) # Add to input
+        out = model(x[:,-50:], training=False).numpy()[0,-1].reshape(1,1,NUMCHARS)  # Predict next character, passing the previous 50 characters in as input (prevents repetition)
+        out = out==np.max(out,axis=2) # Convert to one-hot
+        out = out.astype('int') # Convert to int
+        x = np.append(x,out,axis=1) # Add to input
 
     sentence = []
     for i in range(len(x)):
@@ -110,7 +108,10 @@ def simpleRNN(hiddenSize,temp):
 def LSTM(hiddenSize,temp):
     LSTM = keras.Sequential()
     LSTM.add(layers.LSTM(units=hiddenSize, activation='tanh', return_sequences=True))
-    LSTM.add(layers.Dropout(0.2))
+    LSTM.add(layers.Dropout(0.4))
+    
+    LSTM.add(layers.LSTM(units=hiddenSize, activation='tanh', return_sequences=True))
+    LSTM.add(layers.Dropout(0.4))
 
     LSTM.add(layers.Dense(units=NUMCHARS, activation='linear'))
 
@@ -140,8 +141,8 @@ if len(sys.argv) > 1:
         sys.exit()
 
     # Initialize prediction with first x window
-    pred1 = predict(x[0].reshape(1,-1,NUMCHARS),Model,150)
-    print(pred1)
+    pred = predict('girl',Model,150)
+    print(pred)
     # pred2 = predict(x[15].reshape(1,-1,NUMCHARS),Model,150)
     # pred3 = predict(x[67].reshape(1,-1,NUMCHARS),Model,150)
     # # print(pred[9::10])
@@ -157,22 +158,12 @@ if len(sys.argv) > 1:
     graphGeneral(hist, Model, str(modelType)+str(hiddenSize)+str(windowSize), "Epoch-Loss")
 
 else: # If command line arguments are not given
-    # def trainingData(window_size, stride, file_name='beatles.txt'):
-    x,y,enc = trainingData(10,5)
+    x,y,enc = trainingData(20,5)
 
-    # a,b,encoder = trainingData(10, 2)
-
-    #hist = train(x,y,simpleRNN,numEpochs=5,lr=0.001)
-    hist, lModel = train(x,y,LSTM,numEpochs=15,lr=0.003, hiddenSize=100)
-
-
-    pred = predict(x[0].reshape(1,-1,NUMCHARS),lModel,100)
+    hist, lModel = train(x,y,LSTM,numEpochs=30,lr=0.003, hiddenSize=400, temp=3)
+    pred = predict('girl',lModel,200)
     print(pred)
-    # print('\n\n')
-
 
     # hist, sModel = train(x,y,simpleRNN,numEpochs=55,lr=0.003,hiddenSize=100)
-
-
     # pred = predict(x[0].reshape(1,-1,NUMCHARS),sModel,150)
     # print(pred)
