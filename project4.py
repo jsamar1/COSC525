@@ -12,7 +12,7 @@ import sys
 
 
 NUMCHARS = 27
-folder = './project3Data/'
+folder = './project4Data/'
 
 def trainingData(window_size, stride, file_name='beatles.txt'):
     global NUMCHARS
